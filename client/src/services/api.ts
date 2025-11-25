@@ -5,6 +5,10 @@ const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || 'https://studydrop-api.onrender.com/api',
 });
 
+// Simple in-memory cache
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 30000; // 30 seconds
+
 // Add auth token to requests
 api.interceptors.request.use((config) => {
     const token = useAuthStore.getState().token;
@@ -14,9 +18,40 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Handle 401 errors
+// Cache GET requests
+api.interceptors.request.use((config) => {
+    if (config.method === 'get') {
+        const cacheKey = `${config.url}${JSON.stringify(config.params || {})}`;
+        const cached = cache.get(cacheKey);
+
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            // Return cached data
+            config.adapter = () => {
+                return Promise.resolve({
+                    data: cached.data,
+                    status: 200,
+                    statusText: 'OK (cached)',
+                    headers: {},
+                    config,
+                });
+            };
+        }
+    }
+    return config;
+});
+
+// Store successful GET responses in cache
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        if (response.config.method === 'get' && response.status === 200) {
+            const cacheKey = `${response.config.url}${JSON.stringify(response.config.params || {})}`;
+            cache.set(cacheKey, {
+                data: response.data,
+                timestamp: Date.now(),
+            });
+        }
+        return response;
+    },
     (error) => {
         if (error.response?.status === 401) {
             useAuthStore.getState().clearAuth();
@@ -25,6 +60,9 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// Clear cache on mutations
+const clearCache = () => cache.clear();
 
 // Auth
 export const authApi = {
@@ -36,7 +74,10 @@ export const authApi = {
 // Users
 export const userApi = {
     getUser: (id: number) => api.get(`/users/${id}`),
-    updateUser: (id: number, data: any) => api.put(`/users/${id}`, data),
+    updateUser: (id: number, data: any) => {
+        clearCache();
+        return api.put(`/users/${id}`, data);
+    },
     getUserClasses: (id: number) => api.get(`/users/${id}/classes`),
     getUserUploads: (id: number) => api.get(`/users/${id}/uploads`),
 };
@@ -50,26 +91,44 @@ export const collegeApi = {
 export const classApi = {
     getClasses: (collegeId?: number) => api.get('/classes', { params: { collegeId } }),
     getClass: (id: number) => api.get(`/classes/${id}`),
-    createClass: (data: any) => api.post('/classes', data),
-    joinClass: (data: any) => api.post('/classes/join', data),
-    leaveClass: (data: any) => api.post('/classes/leave', data),
+    createClass: (data: any) => {
+        clearCache();
+        return api.post('/classes', data);
+    },
+    joinClass: (data: any) => {
+        clearCache();
+        return api.post('/classes/join', data);
+    },
+    leaveClass: (data: any) => {
+        clearCache();
+        return api.post('/classes/leave', data);
+    },
     getClassUploads: (id: number) => api.get(`/classes/${id}/uploads`),
     getClassDiscussions: (id: number) => api.get(`/classes/${id}/discussions`),
 };
 
 // Uploads
 export const uploadApi = {
-    uploadFile: (formData: FormData) => api.post('/uploads', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+    uploadFile: (formData: FormData) => {
+        clearCache();
+        return api.post('/uploads', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+    },
     getUpload: (id: number) => api.get(`/uploads/${id}`),
-    deleteUpload: (id: number) => api.delete(`/uploads/${id}`),
+    deleteUpload: (id: number) => {
+        clearCache();
+        return api.delete(`/uploads/${id}`);
+    },
     getUploadComments: (id: number) => api.get(`/uploads/${id}/comments`),
 };
 
 // Comments
 export const commentApi = {
-    addComment: (data: any) => api.post('/comments', data),
+    addComment: (data: any) => {
+        clearCache();
+        return api.post('/comments', data);
+    },
 };
 
 // Notifications
@@ -100,7 +159,10 @@ export const downloadApi = {
 // Admin
 export const adminApi = {
     getUploads: (params?: any) => api.get('/admin/uploads', { params }),
-    deleteUpload: (id: number) => api.delete(`/admin/uploads/${id}`),
+    deleteUpload: (id: number) => {
+        clearCache();
+        return api.delete(`/admin/uploads/${id}`);
+    },
     getUsers: () => api.get('/admin/users'),
     getLogs: (params?: any) => api.get('/admin/logs', { params }),
 };
