@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Download as DownloadIcon, ExternalLink, RefreshCw } from 'lucide-react';
+import { Download as DownloadIcon, ExternalLink, RefreshCw, Trash2, X } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import { downloadApi } from '../services/api';
+import { downloadApi, uploadApi } from '../services/api';
 import PDFViewerModal from '../components/PDFViewerModal';
 import ImageViewerModal from '../components/ImageViewerModal';
 import Toast from '../components/Toast';
@@ -21,11 +21,59 @@ interface DownloadHistoryItem {
     uploader_name: string;
 }
 
+// Confirmation Modal Component
+function ConfirmDeleteModal({
+    filename,
+    onConfirm,
+    onCancel
+}: {
+    filename: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+}) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Delete File?</h3>
+                    <button
+                        onClick={onCancel}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-white">"{filename}"</span>? This action cannot be undone.
+                </p>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={onCancel}
+                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function Downloads() {
     const [downloads, setDownloads] = useState<DownloadHistoryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [viewerFile, setViewerFile] = useState<{ url: string; filename: string; type: 'pdf' | 'image' } | null>(null);
     const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
+    const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; filename: string } | null>(null);
 
     useEffect(() => {
         fetchDownloads();
@@ -45,8 +93,12 @@ export default function Downloads() {
 
     const handleView = (download: DownloadHistoryItem) => {
         const isPDF = download.mime_type?.includes('pdf');
+        // Use backend API URL for proxy
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://studydrop-api.onrender.com/api';
+        const proxyUrl = `${apiBaseUrl}/proxy?url=${encodeURIComponent(download.file_path)}`;
+
         setViewerFile({
-            url: download.file_path,
+            url: isPDF ? proxyUrl : download.file_path,
             filename: download.title || download.original_filename,
             type: isPDF ? 'pdf' : 'image',
         });
@@ -57,18 +109,56 @@ export default function Downloads() {
             // Track the download
             await downloadApi.trackDownload(download.upload_id);
 
-            // Trigger download
+            // Use backend API URL for proxy to force correct filename
+            const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://studydrop-api.onrender.com/api';
+            const proxyUrl = `${apiBaseUrl}/proxy?url=${encodeURIComponent(download.file_path)}&filename=${encodeURIComponent(download.original_filename)}&download=true`;
+
+            // Fetch without auth header since proxy is public
+            const response = await fetch(proxyUrl);
+
+            if (!response.ok) throw new Error('Download failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = download.file_path;
+            link.href = url;
             link.download = download.original_filename;
-            link.target = '_blank';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
 
+            setToastMessage('File downloaded.');
             setShowToast(true);
         } catch (err) {
             console.error('Error downloading file:', err);
+            setToastMessage('Download failed.');
+            setShowToast(true);
+        }
+    };
+
+    const handleDeleteClick = (download: DownloadHistoryItem) => {
+        setDeleteConfirm({
+            id: download.upload_id,
+            filename: download.title || download.original_filename,
+        });
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!deleteConfirm) return;
+
+        try {
+            await uploadApi.deleteUpload(deleteConfirm.id);
+            setToastMessage('File deleted successfully.');
+            setShowToast(true);
+            setDeleteConfirm(null);
+            // Refresh downloads list
+            fetchDownloads();
+        } catch (err) {
+            console.error('Error deleting file:', err);
+            setToastMessage('Failed to delete file.');
+            setShowToast(true);
+            setDeleteConfirm(null);
         }
     };
 
@@ -188,6 +278,13 @@ export default function Downloads() {
                                                     >
                                                         <RefreshCw className="w-4 h-4" />
                                                     </button>
+                                                    <button
+                                                        onClick={() => handleDeleteClick(download)}
+                                                        className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -198,6 +295,15 @@ export default function Downloads() {
                     </div>
                 )}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirm && (
+                <ConfirmDeleteModal
+                    filename={deleteConfirm.filename}
+                    onConfirm={handleDeleteConfirm}
+                    onCancel={() => setDeleteConfirm(null)}
+                />
+            )}
 
             {/* Viewers */}
             {viewerFile && viewerFile.type === 'pdf' && (
@@ -216,7 +322,7 @@ export default function Downloads() {
             )}
 
             {/* Toast */}
-            {showToast && <Toast message="File downloaded." onClose={() => setShowToast(false)} />}
+            {showToast && <Toast message={toastMessage} onClose={() => setShowToast(false)} />}
         </div>
     );
 }
