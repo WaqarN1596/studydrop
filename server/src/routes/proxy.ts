@@ -11,12 +11,7 @@ router.get('/', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'URL is required' });
         }
 
-        // Security check: Ensure URL is from Cloudinary (optional but recommended)
-        // if (!url.includes('cloudinary.com')) {
-        //     return res.status(400).json({ error: 'Invalid URL domain' });
-        // }
-
-        // Fetch the file from Cloudinary (using the signed URL passed in query)
+        // Fetch the file from the URL
         const response = await axios({
             method: 'get',
             url: url as string,

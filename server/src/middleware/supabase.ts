@@ -16,15 +16,15 @@ export const BUCKET_NAME = 'StudyDrop';
 
 /**
  * Generates a signed URL for a file.
- * Handles both legacy Cloudinary URLs and new Supabase Storage paths.
+ * Handles both legacy external URLs and new Supabase Storage paths.
  * 
- * @param pathOrUrl - The stored 'url' from the database (either a full Cloudinary URL or a Supabase path)
+ * @param pathOrUrl - The stored 'url' from the database (either a full URL or a Supabase path)
  * @param expiresIn - Expiration time in seconds (default 3600 = 1 hour)
  */
 export const getSignedUrl = async (pathOrUrl: string, expiresIn: number = 3600): Promise<string> => {
     if (!pathOrUrl) return '';
 
-    // Check if it's a Cloudinary URL (Legacy) - Just return it as is since we removed Cloudinary SDK
+    // Check if it's an external URL (Legacy or Public) - Just return it as is
     if (pathOrUrl.startsWith('http')) {
         return pathOrUrl;
     }
