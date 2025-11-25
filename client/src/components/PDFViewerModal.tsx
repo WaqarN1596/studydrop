@@ -44,11 +44,22 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
             setError('');
 
             const token = localStorage.getItem('token');
-            const loadingTask = pdfjsLib.getDocument({
-                url,
-                httpHeaders: {
+
+            // Fetch the PDF data directly to avoid PDF.js worker CORS/Header issues
+            const response = await fetch(url, {
+                headers: {
                     'Authorization': `Bearer ${token}`
                 }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+
+            const loadingTask = pdfjsLib.getDocument({
+                data: arrayBuffer,
             });
 
             const pdfDoc = await loadingTask.promise;
