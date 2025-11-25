@@ -55,9 +55,9 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
             setPdf(pdfDoc);
             setTotalPages(pdfDoc.numPages);
             setLoading(false);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error loading PDF:', err);
-            setError('Failed to load PDF');
+            setError(`Failed to load PDF: ${err.message || 'Unknown error'}`);
             setLoading(false);
         }
     };

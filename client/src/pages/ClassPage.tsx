@@ -84,8 +84,8 @@ export default function ClassPage() {
 
     const handleView = (upload: UploadType) => {
         const isPDF = upload.mimeType?.includes('pdf');
-        // Use proxy URL for viewing to avoid CORS issues with PDF.js
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(upload.url)}`;
+        // Use absolute proxy URL for viewing to avoid CORS issues with PDF.js worker
+        const proxyUrl = `${window.location.origin}/api/proxy?url=${encodeURIComponent(upload.url)}`;
 
         setViewerFile({
             url: isPDF ? proxyUrl : upload.url, // Images usually work fine without proxy, but PDF needs it
@@ -101,7 +101,7 @@ export default function ClassPage() {
 
             // Use proxy for download to force correct filename
             const token = localStorage.getItem('token');
-            const proxyUrl = `/api/proxy?url=${encodeURIComponent(upload.url)}&filename=${encodeURIComponent(upload.originalFilename)}&download=true`;
+            const proxyUrl = `${window.location.origin}/api/proxy?url=${encodeURIComponent(upload.url)}&filename=${encodeURIComponent(upload.originalFilename)}&download=true`;
 
             // We need to fetch with auth header since proxy is protected
             const response = await fetch(proxyUrl, {
