@@ -63,7 +63,7 @@ router.post('/login', async (req, res: Response) => {
         }
 
         // Check password
-        const validPassword = await bcrypt.compare(password, user.passwordHash);
+        const dbPassword = user.passwordHash || user.passwordhash; if (!dbPassword) { return res.status(500).json({ error: "Login failed: password hash missing" }); } const validPassword = await bcrypt.compare(password, dbPassword);
         if (!validPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
