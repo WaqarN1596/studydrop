@@ -18,7 +18,6 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
     const [scale, setScale] = useState(1.5);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [renderedPages, setRenderedPages] = useState<Set<number>>(new Set());
     const [pageInput, setPageInput] = useState('');
     const pageRefs = useRef<{ [key: number]: HTMLCanvasElement | null }>({});
 
@@ -72,14 +71,9 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
     const renderAllPages = async () => {
         if (!pdf) return;
 
-        const newRenderedPages = new Set<number>();
-
         for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
             await renderPage(pageNum);
-            newRenderedPages.add(pageNum);
         }
-
-        setRenderedPages(newRenderedPages);
     };
 
     const renderPage = async (pageNum: number) => {
