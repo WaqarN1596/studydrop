@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -22,8 +22,10 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
     const [error, setError] = useState('');
     const [isEditingPage, setIsEditingPage] = useState(false);
     const [pageInput, setPageInput] = useState('1');
+    const [visiblePages, setVisiblePages] = useState<Set<number>>(new Set());
     const pageRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
     const canvasRefs = useRef<{ [key: number]: HTMLCanvasElement | null }>({});
+    const renderingPages = useRef<Set<number>>(new Set());
 
     useEffect(() => {
         // Prevent background scrolling
@@ -37,31 +39,41 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
         loadPDF();
     }, [url]);
 
-    useEffect(() => {
-        if (pdf && totalPages > 0) {
-            renderAllPages();
-        }
-    }, [pdf, scale, rotation]);
-
-    // Track current page based on scroll position
+    // Track current page and visible pages based on scroll position
     useEffect(() => {
         if (!containerRef.current || totalPages === 0) return;
 
         const observer = new IntersectionObserver(
             (entries) => {
+                const newVisiblePages = new Set(visiblePages);
+
                 entries.forEach((entry) => {
+                    const pageNum = parseInt(entry.target.getAttribute('data-page') || '1');
+
                     if (entry.isIntersecting) {
-                        const pageNum = parseInt(entry.target.getAttribute('data-page') || '1');
-                        setCurrentPage(pageNum);
-                        if (!isEditingPage) {
-                            setPageInput(pageNum.toString());
+                        newVisiblePages.add(pageNum);
+                        // Also add adjacent pages for smoother scrolling
+                        if (pageNum > 1) newVisiblePages.add(pageNum - 1);
+                        if (pageNum < totalPages) newVisiblePages.add(pageNum + 1);
+
+                        // Update current page if this page is more than 50% visible
+                        if (entry.intersectionRatio > 0.5) {
+                            setCurrentPage(pageNum);
+                            if (!isEditingPage) {
+                                setPageInput(pageNum.toString());
+                            }
                         }
+                    } else {
+                        newVisiblePages.delete(pageNum);
                     }
                 });
+
+                setVisiblePages(newVisiblePages);
             },
             {
                 root: containerRef.current,
-                threshold: 0.5,
+                threshold: [0, 0.5, 1],
+                rootMargin: '200px', // Start loading pages 200px before they're visible
             }
         );
 
@@ -70,7 +82,18 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
         });
 
         return () => observer.disconnect();
-    }, [totalPages, isEditingPage]);
+    }, [totalPages, isEditingPage, visiblePages]);
+
+    // Render visible pages when they change
+    useEffect(() => {
+        if (!pdf) return;
+
+        visiblePages.forEach((pageNum) => {
+            if (!renderingPages.current.has(pageNum)) {
+                renderPage(pageNum);
+            }
+        });
+    }, [visiblePages, pdf, scale, rotation]);
 
     const loadPDF = async () => {
         try {
@@ -100,27 +123,25 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
         }
     };
 
-    const renderAllPages = async () => {
-        if (!pdf) return;
-
-        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-            await renderPage(pageNum);
-        }
-    };
-
-    const renderPage = async (pageNum: number) => {
-        if (!pdf) return;
+    const renderPage = useCallback(async (pageNum: number) => {
+        if (!pdf || renderingPages.current.has(pageNum)) return;
 
         const canvas = canvasRefs.current[pageNum];
         if (!canvas) return;
+
+        renderingPages.current.add(pageNum);
 
         try {
             const page = await pdf.getPage(pageNum);
             const viewport = page.getViewport({ scale, rotation });
             const context = canvas.getContext('2d');
 
-            if (!context) return;
+            if (!context) {
+                renderingPages.current.delete(pageNum);
+                return;
+            }
 
+            // Clear previous render
             canvas.height = viewport.height;
             canvas.width = viewport.width;
 
@@ -132,8 +153,10 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
             await page.render(renderContext).promise;
         } catch (err) {
             console.error(`Error rendering page ${pageNum}:`, err);
+        } finally {
+            renderingPages.current.delete(pageNum);
         }
-    };
+    }, [pdf, scale, rotation]);
 
     const handleZoomIn = () => {
         setScale((prev) => Math.min(prev + 0.25, 3));
@@ -262,7 +285,7 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
                     </form>
                 </div>
 
-                {/* PDF Container - Continuous Scroll */}
+                {/* PDF Container - Continuous Scroll with Lazy Loading */}
                 <div
                     ref={containerRef}
                     className="flex-1 overflow-auto p-2 sm:p-4 bg-gray-100 dark:bg-gray-900"
@@ -292,6 +315,7 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
                                     <canvas
                                         ref={(el) => (canvasRefs.current[pageNum] = el)}
                                         className="shadow-lg bg-white max-w-full h-auto"
+                                        style={{ minHeight: '400px' }} // Prevent layout shift
                                     />
                                 </div>
                             ))}
