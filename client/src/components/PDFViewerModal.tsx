@@ -42,7 +42,15 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
         try {
             setLoading(true);
             setError('');
-            const loadingTask = pdfjsLib.getDocument(url);
+
+            const token = localStorage.getItem('token');
+            const loadingTask = pdfjsLib.getDocument({
+                url,
+                httpHeaders: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
             const pdfDoc = await loadingTask.promise;
             setPdf(pdfDoc);
             setTotalPages(pdfDoc.numPages);

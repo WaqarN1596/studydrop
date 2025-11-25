@@ -16,6 +16,7 @@
     "dependencies": {
         "@huggingface/inference": "^4.13.3",
         "@types/pg": "^8.15.6",
+        "axios": "^1.13.2",
         "bcrypt": "^5.1.1",
         "cloudinary": "^1.41.3",
         "cors": "^2.8.5",

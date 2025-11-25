@@ -20,6 +20,7 @@ import notificationRoutes from './routes/notifications';
 import adminRoutes from './routes/admin';
 import aiRoutes from './routes/ai';
 import downloadsRoutes from './routes/downloads';
+import proxyRoutes from './routes/proxy';
 
 // Import PostgreSQL database connection
 import pool from './db/postgres';
@@ -63,6 +64,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/downloads', downloadsRoutes);
+app.use('/api/proxy', proxyRoutes);
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {

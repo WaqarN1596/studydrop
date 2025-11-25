@@ -84,8 +84,11 @@ export default function ClassPage() {
 
     const handleView = (upload: UploadType) => {
         const isPDF = upload.mimeType?.includes('pdf');
+        // Use proxy URL for viewing to avoid CORS issues with PDF.js
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(upload.url)}`;
+
         setViewerFile({
-            url: upload.url,
+            url: isPDF ? proxyUrl : upload.url, // Images usually work fine without proxy, but PDF needs it
             filename: upload.title || upload.originalFilename,
             type: isPDF ? 'pdf' : 'image',
         });
@@ -96,18 +99,33 @@ export default function ClassPage() {
             // Track the download
             await downloadApi.trackDownload(upload.id);
 
-            // Trigger download
+            // Use proxy for download to force correct filename
+            const token = localStorage.getItem('token');
+            const proxyUrl = `/api/proxy?url=${encodeURIComponent(upload.url)}&filename=${encodeURIComponent(upload.originalFilename)}&download=true`;
+
+            // We need to fetch with auth header since proxy is protected
+            const response = await fetch(proxyUrl, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) throw new Error('Download failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = upload.url;
+            link.href = url;
             link.download = upload.originalFilename;
-            link.target = '_blank';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
 
             setShowToast(true);
         } catch (err) {
             console.error('Error downloading file:', err);
+            alert('Failed to download file. Please try again.');
         }
     };
 
