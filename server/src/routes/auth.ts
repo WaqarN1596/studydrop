@@ -1,5 +1,5 @@
 import express, { Response } from 'express';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { query, queryOne } from '../db/postgres';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
