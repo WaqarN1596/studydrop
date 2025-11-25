@@ -100,15 +100,10 @@ export default function ClassPage() {
             await downloadApi.trackDownload(upload.id);
 
             // Use proxy for download to force correct filename
-            const token = localStorage.getItem('token');
             const proxyUrl = `${window.location.origin}/api/proxy?url=${encodeURIComponent(upload.url)}&filename=${encodeURIComponent(upload.originalFilename)}&download=true`;
 
-            // We need to fetch with auth header since proxy is protected
-            const response = await fetch(proxyUrl, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            // Fetch without auth header since proxy is public
+            const response = await fetch(proxyUrl);
 
             if (!response.ok) throw new Error('Download failed');
 

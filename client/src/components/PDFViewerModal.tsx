@@ -43,14 +43,8 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
             setLoading(true);
             setError('');
 
-            const token = localStorage.getItem('token');
-
             // Fetch the PDF data directly to avoid PDF.js worker CORS/Header issues
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const response = await fetch(url);
 
             if (!response.ok) {
                 throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);

@@ -1,10 +1,9 @@
-import express, { Response } from 'express';
+import express, { Request, Response } from 'express';
 import axios from 'axios';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
         const { url, filename, download } = req.query;
 
