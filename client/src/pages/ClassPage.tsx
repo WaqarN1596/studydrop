@@ -84,9 +84,9 @@ export default function ClassPage() {
 
     const handleView = (upload: UploadType) => {
         const isPDF = upload.mimeType?.includes('pdf');
-        // Use absolute proxy URL for viewing to avoid CORS issues with PDF.js worker
-        // The backend will handle signing the URL if needed
-        const proxyUrl = `${window.location.origin}/api/proxy?url=${encodeURIComponent(upload.url)}`;
+        // Use backend API URL for proxy to avoid CORS issues with PDF.js worker
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://studydrop-api.onrender.com/api';
+        const proxyUrl = `${apiBaseUrl}/proxy?url=${encodeURIComponent(upload.url)}`;
 
         setViewerFile({
             url: isPDF ? proxyUrl : upload.url, // Images usually work fine without proxy, but PDF needs it
@@ -100,8 +100,9 @@ export default function ClassPage() {
             // Track the download
             await downloadApi.trackDownload(upload.id);
 
-            // Use proxy for download to force correct filename
-            const proxyUrl = `${window.location.origin}/api/proxy?url=${encodeURIComponent(upload.url)}&filename=${encodeURIComponent(upload.originalFilename)}&download=true`;
+            // Use backend API URL for proxy to force correct filename
+            const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://studydrop-api.onrender.com/api';
+            const proxyUrl = `${apiBaseUrl}/proxy?url=${encodeURIComponent(upload.url)}&filename=${encodeURIComponent(upload.originalFilename)}&download=true`;
 
             // Fetch without auth header since proxy is public
             const response = await fetch(proxyUrl);
