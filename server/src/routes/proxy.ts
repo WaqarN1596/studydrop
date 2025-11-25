@@ -16,16 +16,15 @@ router.get('/', async (req: Request, res: Response) => {
         //     return res.status(400).json({ error: 'Invalid URL domain' });
         // }
 
+        // Fetch the file from Cloudinary (using the signed URL passed in query)
         const response = await axios({
             method: 'get',
-            url: url,
+            url: url as string,
             responseType: 'stream'
         });
 
-        // Set headers
+        // Set clean headers
         res.setHeader('Content-Type', response.headers['content-type']);
-        // Do not forward Content-Length as axios might decompress the response, making the length incorrect
-        // res.setHeader('Content-Length', response.headers['content-length']);
 
         if (download === 'true' && filename) {
             // Encode filename to handle special characters
