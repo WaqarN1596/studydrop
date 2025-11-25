@@ -1,13 +1,13 @@
+import dotenv from 'dotenv';
+// Load environment variables before any other imports
+dotenv.config();
+
 import debugRouter from './routes/debug';
 import testRouter from './routes/test';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
-
-// Load environment variables
-dotenv.config();
 
 // Import routes
 import authRoutes from './routes/auth';

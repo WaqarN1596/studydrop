@@ -64,12 +64,13 @@ export const deleteFile = async (publicId: string) => {
 };
 
 // Helper to get file URL
-export const getFileUrl = (publicId: string) => {
+export const getFileUrl = (publicId: string, format?: string, version?: string) => {
     return cloudinary.url(publicId, {
         secure: true,
-        resource_type: 'auto',
-        sign_url: true, // IMPORTANT: Sign the URL for private access
-        type: 'authenticated' // Specify that this is an authenticated resource
+        sign_url: true,
+        type: 'authenticated',
+        format: format,
+        version: version
     });
 };
 
