@@ -1,0 +1,338 @@
+{
+    "info": {
+        "name": "ClassUploads API",
+        "description": "Complete API collection for ClassUploads platform",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Authentication",
+            "item": [
+                {
+                    "name": "Register",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"major\": \"Computer Science\",\n  \"year\": 3\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/auth/register"
+                        }
+                    }
+                },
+                {
+                    "name": "Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"password123\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/auth/login"
+                        }
+                    }
+                },
+                {
+                    "name": "Get Current User",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost:4000/api/auth/me"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Classes",
+            "item": [
+                {
+                    "name": "Get All Classes",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "http://localhost:4000/api/classes"
+                        }
+                    }
+                },
+                {
+                    "name": "Get Class by ID",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "http://localhost:4000/api/classes/1"
+                        }
+                    }
+                },
+                {
+                    "name": "Join Class",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"classId\": 1,\n  \"semester\": \"Fall 2024\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/classes/join"
+                        }
+                    }
+                },
+                {
+                    "name": "Get Class Uploads",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "http://localhost:4000/api/classes/1/uploads"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Uploads",
+            "item": [
+                {
+                    "name": "Upload File",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file"
+                                },
+                                {
+                                    "key": "classId",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "title",
+                                    "value": "Midterm Exam"
+                                },
+                                {
+                                    "key": "summary",
+                                    "value": "Practice midterm"
+                                },
+                                {
+                                    "key": "category",
+                                    "value": "exam"
+                                },
+                                {
+                                    "key": "tags",
+                                    "value": "[\"midterm\",\"exam\",\"practice\"]"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/uploads"
+                        }
+                    }
+                },
+                {
+                    "name": "Get Upload",
+                    "request": {
+                        "method": "GET",
+                        "url": {
+                            "raw": "http://localhost:4000/api/uploads/1"
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Upload",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost:4000/api/uploads/1"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "AI",
+            "item": [
+                {
+                    "name": "Extract Title",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"filename\": \"midterm_exam_fall_2024.pdf\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/ai/extract-title"
+                        }
+                    }
+                },
+                {
+                    "name": "Generate Tags",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"filename\": \"exam.pdf\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/ai/tags"
+                        }
+                    }
+                },
+                {
+                    "name": "Classify",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"filename\": \"homework_assignment.pdf\"\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/ai/classify"
+                        }
+                    }
+                },
+                {
+                    "name": "Check Duplicate",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"filename\": \"exam.pdf\",\n  \"classId\": 1\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/ai/check-duplicate"
+                        }
+                    }
+                },
+                {
+                    "name": "Semantic Search",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"query\": \"calculus derivatives\",\n  \"classId\": 1\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/ai/search"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Notifications",
+            "item": [
+                {
+                    "name": "Get Notifications",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "http://localhost:4000/api/notifications"
+                        }
+                    }
+                },
+                {
+                    "name": "Mark as Read",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"notificationId\": 1\n}"
+                        },
+                        "url": {
+                            "raw": "http://localhost:4000/api/notifications/read"
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
