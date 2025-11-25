@@ -72,8 +72,19 @@ router.post('/', authenticateToken, upload.single('file'), async (req: AuthReque
 
         // Fetch and return the created upload
         const upload = await queryOne(
-            `SELECT u.*, 
-                    us.name as uploader_name,
+            `SELECT 
+                    u.id,
+                    u.class_id as "classId",
+                    u.user_id as "userId",
+                    u.title,
+                    u.original_filename as "originalFilename",
+                    u.file_path as "url",
+                    u.mime_type as "mimeType",
+                    u.file_size as "size",
+                    u.category,
+                    u.summary,
+                    u.created_at as "createdAt",
+                    us.name as "uploaderName",
                     ARRAY_AGG(ut.tag) FILTER (WHERE ut.tag IS NOT NULL) as tags
              FROM uploads u
              LEFT JOIN users us ON u.user_id = us.id
@@ -96,9 +107,20 @@ router.get('/:id', async (req: Request, res: Response) => {
         const { id } = req.params;
 
         const upload = await queryOne(
-            `SELECT u.*, 
-                    us.name as uploader_name,
-                    us.email as uploader_email,
+            `SELECT 
+                    u.id,
+                    u.class_id as "classId",
+                    u.user_id as "userId",
+                    u.title,
+                    u.original_filename as "originalFilename",
+                    u.file_path as "url",
+                    u.mime_type as "mimeType",
+                    u.file_size as "size",
+                    u.category,
+                    u.summary,
+                    u.created_at as "createdAt",
+                    us.name as "uploaderName",
+                    us.email as "uploaderEmail",
                     ARRAY_AGG(ut.tag) FILTER (WHERE ut.tag IS NOT NULL) as tags
              FROM uploads u
              LEFT JOIN users us ON u.user_id = us.id
