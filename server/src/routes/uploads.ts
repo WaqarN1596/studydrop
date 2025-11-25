@@ -1,7 +1,16 @@
 import express, { Request, Response } from 'express';
 import { query, queryOne, queryAll } from '../db/postgres';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { upload, getFileUrl, getSignedUrlFromPublicUrl } from '../middleware/cloudinary'; // Use Cloudinary instead of local storage
+import { supabase, BUCKET_NAME, getSignedUrl } from '../middleware/supabase';
+import multer from 'multer';
+
+// Use memory storage for Supabase uploads
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 20 * 1024 * 1024 // 20MB limit
+    }
+});
 
 const router = express.Router();
 
@@ -12,35 +21,65 @@ router.post('/', authenticateToken, upload.single('file'), async (req: AuthReque
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
+        const file = req.file;
         const { classId, title, summary, category, tags } = req.body;
-        const userId = req.user?.id;
+        const userId = req.user?.id; // Use req.user?.id as per AuthRequest type
 
         if (!classId) {
             return res.status(400).json({ error: 'Class ID is required' });
         }
 
-        // Cloudinary file details
-        const filePath = (req.file as any).path; // Cloudinary URL
-        const publicId = (req.file as any).filename; // Cloudinary public ID
+        // Generate unique path: userId/timestamp-filename
+        const timestamp = Date.now();
+        // Sanitize filename to be URL-friendly and avoid issues with Supabase storage paths
+        const cleanFileName = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const filePath = `${userId}/${timestamp}-${cleanFileName}`;
 
-        // Insert upload record
-        const result = await query(
-            `INSERT INTO uploads (class_id, user_id, original_filename, file_path, title, summary, mime_type, file_size, category) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase
+            .storage
+            .from(BUCKET_NAME)
+            .upload(filePath, file.buffer, {
+                contentType: file.mimetype,
+                upsert: false
+            });
+
+        if (uploadError) {
+            console.error('Supabase upload error:', uploadError);
+            return res.status(500).json({ error: 'Failed to upload file to storage' });
+        }
+
+        // Save metadata to DB
+        // We store the filePath in the 'file_path' column.
+        // The 'getSignedUrl' helper will detect it's not an http URL and treat it as a path.
+        const fileStoragePath = filePath;
+
+        const result = await queryOne(
+            `INSERT INTO uploads (
+                class_id,
+                user_id,
+                original_filename,
+                file_path,
+                title,
+                summary,
+                mime_type,
+                file_size,
+                category
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
             [
                 classId,
                 userId,
-                req.file.originalname,
-                filePath, // Cloudinary URL
-                title || req.file.originalname,
+                file.originalname,
+                fileStoragePath, // Storing path in file_path
+                title || file.originalname,
                 summary,
-                req.file.mimetype,
-                req.file.size,
+                file.mimetype,
+                file.size,
                 category
             ]
         );
 
-        const uploadId = result.rows[0].id;
+        const uploadId = result.id;
 
         // Insert tags
         if (tags) {
@@ -95,7 +134,7 @@ router.post('/', authenticateToken, upload.single('file'), async (req: AuthReque
         );
 
         // Generate signed URL
-        const signedUrl = getFileUrl(publicId);
+        const signedUrl = await getSignedUrl(fileStoragePath);
 
         // Return upload with signed URL
         res.status(201).json({
@@ -143,9 +182,9 @@ router.get('/:id', async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Upload not found' });
         }
 
-        // Generate signed URL from the stored URL
+        // Generate signed URL from the stored URL (or path)
         if (upload.url) {
-            upload.url = getSignedUrlFromPublicUrl(upload.url);
+            upload.url = await getSignedUrl(upload.url);
         }
 
         res.json({ upload });
