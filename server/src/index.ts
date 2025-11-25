@@ -1,3 +1,4 @@
+import debugRouter from './routes/debug';
 import testRouter from './routes/test';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -51,6 +52,7 @@ app.use('/uploads', express.static(path.resolve(uploadDir)));
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/test', testRouter);
+app.use('/api/debug', debugRouter);
 app.use('/api/users', userRoutes);
 app.use('/api/colleges', collegeRoutes);
 app.use('/api/classes', classRoutes);
