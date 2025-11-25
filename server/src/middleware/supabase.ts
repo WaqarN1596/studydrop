@@ -12,7 +12,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 export const supabase = createClient(supabaseUrl || '', supabaseServiceKey || '');
 
-export const BUCKET_NAME = 'class-uploads';
+export const BUCKET_NAME = 'StudyDrop';
 
 /**
  * Generates a signed URL for a file.
