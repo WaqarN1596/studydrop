@@ -26,7 +26,7 @@ router.post('/register', async (req, res: Response) => {
 
         // Create user
         const result = await query(
-            `INSERT INTO users (name, email, password, major, year, role) 
+            `INSERT INTO users (name, email, passwordHash, major, year, role) 
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, major, year, role`,
             [name, email, hashedPassword, major, year, 'student']
         );
@@ -63,7 +63,7 @@ router.post('/login', async (req, res: Response) => {
         }
 
         // Check password
-        const validPassword = await bcrypt.compare(password, user.password);
+        const validPassword = await bcrypt.compare(password, user.passwordHash);
         if (!validPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
@@ -76,7 +76,7 @@ router.post('/login', async (req, res: Response) => {
         );
 
         // Return user without password
-        const { password: _, ...userWithoutPassword } = user;
+        const { passwordHash: _, ...userWithoutPassword } = user;
         res.json({ user: userWithoutPassword, token });
     } catch (error: any) {
         console.error('Login error:', error);
