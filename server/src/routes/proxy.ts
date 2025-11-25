@@ -25,7 +25,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
         // Set headers
         res.setHeader('Content-Type', response.headers['content-type']);
-        res.setHeader('Content-Length', response.headers['content-length']);
+        // Do not forward Content-Length as axios might decompress the response, making the length incorrect
+        // res.setHeader('Content-Length', response.headers['content-length']);
 
         if (download === 'true' && filename) {
             // Encode filename to handle special characters
