@@ -85,6 +85,7 @@ export default function ClassPage() {
     const handleView = (upload: UploadType) => {
         const isPDF = upload.mimeType?.includes('pdf');
         // Use absolute proxy URL for viewing to avoid CORS issues with PDF.js worker
+        // The backend will handle signing the URL if needed
         const proxyUrl = `${window.location.origin}/api/proxy?url=${encodeURIComponent(upload.url)}`;
 
         setViewerFile({
