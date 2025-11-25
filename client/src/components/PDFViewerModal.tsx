@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, ZoomIn, ZoomOut } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker - using unpkg for better reliability
@@ -14,12 +14,16 @@ interface PDFViewerModalProps {
 export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModalProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [pdf, setPdf] = useState<any>(null);
+    const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
     const [scale, setScale] = useState(1.5);
+    const [rotation, setRotation] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [pageInput, setPageInput] = useState('');
-    const pageRefs = useRef<{ [key: number]: HTMLCanvasElement | null }>({});
+    const [isEditingPage, setIsEditingPage] = useState(false);
+    const [pageInput, setPageInput] = useState('1');
+    const pageRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
+    const canvasRefs = useRef<{ [key: number]: HTMLCanvasElement | null }>({});
 
     useEffect(() => {
         // Prevent background scrolling
@@ -35,10 +39,38 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
 
     useEffect(() => {
         if (pdf && totalPages > 0) {
-            // Render all pages when PDF loads or scale changes
             renderAllPages();
         }
-    }, [pdf, scale]);
+    }, [pdf, scale, rotation]);
+
+    // Track current page based on scroll position
+    useEffect(() => {
+        if (!containerRef.current || totalPages === 0) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const pageNum = parseInt(entry.target.getAttribute('data-page') || '1');
+                        setCurrentPage(pageNum);
+                        if (!isEditingPage) {
+                            setPageInput(pageNum.toString());
+                        }
+                    }
+                });
+            },
+            {
+                root: containerRef.current,
+                threshold: 0.5,
+            }
+        );
+
+        Object.values(pageRefs.current).forEach((ref) => {
+            if (ref) observer.observe(ref);
+        });
+
+        return () => observer.disconnect();
+    }, [totalPages, isEditingPage]);
 
     const loadPDF = async () => {
         try {
@@ -79,12 +111,12 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
     const renderPage = async (pageNum: number) => {
         if (!pdf) return;
 
-        const canvas = pageRefs.current[pageNum];
+        const canvas = canvasRefs.current[pageNum];
         if (!canvas) return;
 
         try {
             const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale });
+            const viewport = page.getViewport({ scale, rotation });
             const context = canvas.getContext('2d');
 
             if (!context) return;
@@ -111,16 +143,30 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
         setScale((prev) => Math.max(prev - 0.25, 0.5));
     };
 
-    const handlePageJump = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleRotate = () => {
+        setRotation((prev) => (prev + 90) % 360);
+    };
+
+    const handlePageJump = (e?: React.FormEvent) => {
+        e?.preventDefault();
         const pageNum = parseInt(pageInput);
         if (pageNum >= 1 && pageNum <= totalPages) {
-            const canvas = pageRefs.current[pageNum];
-            if (canvas) {
-                canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const pageDiv = pageRefs.current[pageNum];
+            if (pageDiv) {
+                pageDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
-        setPageInput('');
+        setIsEditingPage(false);
+    };
+
+    const handlePageInputClick = () => {
+        setIsEditingPage(true);
+        setPageInput(currentPage.toString());
+    };
+
+    const handlePageInputBlur = () => {
+        setIsEditingPage(false);
+        setPageInput(currentPage.toString());
     };
 
     const handleBackdropClick = (e: React.MouseEvent) => {
@@ -131,13 +177,13 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-2 sm:p-4"
             onClick={handleBackdropClick}
         >
-            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+            <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-lg font-semibold truncate flex-1 mr-4">{filename}</h2>
+                <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-base sm:text-lg font-semibold truncate flex-1 mr-4">{filename}</h2>
                     <button
                         onClick={onClose}
                         className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -148,7 +194,7 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
                 </div>
 
                 {/* Controls */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                     {/* Zoom Controls */}
                     <div className="flex items-center gap-2">
                         <button
@@ -157,9 +203,9 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
                             className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Zoom out"
                         >
-                            <ZoomOut className="w-5 h-5" />
+                            <ZoomOut className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
-                        <span className="text-sm font-medium min-w-[4rem] text-center">
+                        <span className="text-xs sm:text-sm font-medium min-w-[3.5rem] text-center">
                             {Math.round(scale * 100)}%
                         </span>
                         <button
@@ -168,29 +214,49 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
                             className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Zoom in"
                         >
-                            <ZoomIn className="w-5 h-5" />
+                            <ZoomIn className="w-4 h-4 sm:w-5 sm:h-5" />
+                        </button>
+                        <button
+                            onClick={handleRotate}
+                            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors ml-2"
+                            aria-label="Rotate"
+                        >
+                            <RotateCw className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                     </div>
 
-                    {/* Page Jump */}
+                    {/* Page Navigation */}
                     <form onSubmit={handlePageJump} className="flex items-center gap-2">
-                        <span className="text-sm font-medium">Page:</span>
-                        <input
-                            type="number"
-                            min="1"
-                            max={totalPages}
-                            value={pageInput}
-                            onChange={(e) => setPageInput(e.target.value)}
-                            placeholder={`1-${totalPages}`}
-                            className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        />
-                        <button
-                            type="submit"
-                            className="px-3 py-1 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded transition-colors"
-                        >
-                            Go
-                        </button>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="text-xs sm:text-sm font-medium hidden sm:inline">Page:</span>
+                        {isEditingPage ? (
+                            <input
+                                type="number"
+                                min="1"
+                                max={totalPages}
+                                value={pageInput}
+                                onChange={(e) => setPageInput(e.target.value)}
+                                onBlur={handlePageInputBlur}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        handlePageJump(e);
+                                    } else if (e.key === 'Escape') {
+                                        setIsEditingPage(false);
+                                        setPageInput(currentPage.toString());
+                                    }
+                                }}
+                                autoFocus
+                                className="w-16 sm:w-20 px-2 py-1 text-xs sm:text-sm text-center border border-primary-500 rounded bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            />
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handlePageInputClick}
+                                className="w-16 sm:w-20 px-2 py-1 text-xs sm:text-sm font-medium text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 hover:border-primary-500 transition-colors"
+                            >
+                                {currentPage}
+                            </button>
+                        )}
+                        <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                             / {totalPages}
                         </span>
                     </form>
@@ -199,7 +265,7 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
                 {/* PDF Container - Continuous Scroll */}
                 <div
                     ref={containerRef}
-                    className="flex-1 overflow-auto p-4 bg-gray-100 dark:bg-gray-900"
+                    className="flex-1 overflow-auto p-2 sm:p-4 bg-gray-100 dark:bg-gray-900"
                 >
                     {loading && (
                         <div className="flex items-center justify-center h-full">
@@ -208,19 +274,24 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
                     )}
                     {error && (
                         <div className="flex items-center justify-center h-full">
-                            <div className="text-red-600 dark:text-red-400">{error}</div>
+                            <div className="text-red-600 dark:text-red-400 text-sm sm:text-base px-4 text-center">{error}</div>
                         </div>
                     )}
                     {!loading && !error && (
-                        <div className="flex flex-col items-center gap-4">
+                        <div className="flex flex-col items-center gap-3 sm:gap-4">
                             {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                                <div key={pageNum} className="relative">
-                                    <div className="absolute -top-8 left-0 text-sm text-gray-600 dark:text-gray-400">
+                                <div
+                                    key={pageNum}
+                                    ref={(el) => (pageRefs.current[pageNum] = el)}
+                                    data-page={pageNum}
+                                    className="relative"
+                                >
+                                    <div className="absolute -top-6 sm:-top-8 left-0 text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">
                                         Page {pageNum}
                                     </div>
                                     <canvas
-                                        ref={(el) => (pageRefs.current[pageNum] = el)}
-                                        className="shadow-lg bg-white"
+                                        ref={(el) => (canvasRefs.current[pageNum] = el)}
+                                        className="shadow-lg bg-white max-w-full h-auto"
                                     />
                                 </div>
                             ))}
