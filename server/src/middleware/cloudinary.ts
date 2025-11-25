@@ -90,7 +90,7 @@ export const getSignedUrlFromPublicUrl = (publicUrl: string) => {
         // const type = matches[2]; // We force 'authenticated' type for the signed URL
         const version = matches[3];
         let publicId = decodeURIComponent(matches[4]);
-        let format = undefined;
+        let format: string | undefined = undefined;
 
         // Handle extension logic
         if (resourceType === 'image' || resourceType === 'video') {
