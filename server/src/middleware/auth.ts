@@ -23,7 +23,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
     try {
         const decoded = jwt.verify(token, secret) as { userId: number };
 
-        db.get('SELECT * FROM users WHERE id = ?', [decoded.userId], (err, user: User) => {
+        db.get('SELECT * FROM users WHERE id = ?', [decoded.userId], (err: any, user: any) => {
             if (err || !user) {
                 return res.status(403).json({ error: 'Invalid token' });
             }
