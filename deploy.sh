@@ -38,3 +38,4 @@ vercel --prod --yes
 cd ..
 
 echo -e "${GREEN}✅ Deployment process complete!${NC}"
+echo -e "${YELLOW}⚠️  IMPORTANT: Please manually verify the deployment on the live site to ensure no errors or unwanted behaviors.${NC}"

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { classApi } from '../services/api';
 import { Upload as UploadType } from '../types';
-import { Upload, Search, Filter, X, LogOut } from 'lucide-react';
+import { Upload, Search, Filter, X, LogOut, ExternalLink, Download as DownloadIcon } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import UploadModal from '../components/UploadModal';
 
@@ -215,8 +215,8 @@ export default function ClassPage() {
                 ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredUploads.map((upload) => (
-                            <div key={upload.id} className="card-hover">
-                                <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                            <div key={upload.id} className="card-hover group">
+                                <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg mb-4 flex items-center justify-center overflow-hidden relative">
                                     {upload.mimeType?.includes('pdf') ? (
                                         <div className="text-center">
                                             <div className="text-4xl mb-2">📄</div>
@@ -225,6 +225,27 @@ export default function ClassPage() {
                                     ) : (
                                         <img src={upload.url} alt={upload.title || ''} className="w-full h-full object-cover" />
                                     )}
+
+                                    {/* Hover Overlay */}
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                                        <a
+                                            href={upload.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2 bg-white rounded-full text-gray-900 hover:bg-primary-50 transition-colors"
+                                            title="View File"
+                                        >
+                                            <ExternalLink className="w-5 h-5" />
+                                        </a>
+                                        <a
+                                            href={upload.url}
+                                            download
+                                            className="p-2 bg-white rounded-full text-gray-900 hover:bg-primary-50 transition-colors"
+                                            title="Download File"
+                                        >
+                                            <DownloadIcon className="w-5 h-5" />
+                                        </a>
+                                    </div>
                                 </div>
 
                                 <div className="flex items-start justify-between mb-2">
@@ -262,7 +283,9 @@ export default function ClassPage() {
 
                                 <div className="flex items-center justify-between text-sm text-gray-500 pt-3 border-t border-gray-200 dark:border-gray-700">
                                     <span>{upload.uploaderName}</span>
-                                    <span>{new Date(upload.createdAt).toLocaleDateString()}</span>
+                                    <div className="flex gap-2 items-center">
+                                        <span>{new Date(upload.createdAt).toLocaleDateString()}</span>
+                                    </div>
                                 </div>
                             </div>
                         ))}
