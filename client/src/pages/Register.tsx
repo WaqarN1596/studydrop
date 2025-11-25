@@ -109,6 +109,11 @@ export default function Register() {
                                 </option>
                             ))}
                         </select>
+                        {colleges.length === 0 && !loading && (
+                            <p className="text-xs text-red-500 mt-1">
+                                Unable to load colleges. Please refresh or check your connection.
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-1">
