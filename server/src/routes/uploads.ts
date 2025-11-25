@@ -6,10 +6,7 @@ import multer from 'multer';
 
 // Use memory storage for Supabase uploads
 const upload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: 20 * 1024 * 1024 // 20MB limit
-    }
+    storage: multer.memoryStorage()
 });
 
 const router = express.Router();

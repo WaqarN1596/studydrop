@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { getSignedUrlFromPublicUrl } from './cloudinary';
 
 // Initialize Supabase Client
 // We use the SERVICE_ROLE_KEY because we need admin access to write to the 'class-uploads' bucket
@@ -25,9 +24,9 @@ export const BUCKET_NAME = 'class-uploads';
 export const getSignedUrl = async (pathOrUrl: string, expiresIn: number = 3600): Promise<string> => {
     if (!pathOrUrl) return '';
 
-    // Check if it's a Cloudinary URL (Legacy)
+    // Check if it's a Cloudinary URL (Legacy) - Just return it as is since we removed Cloudinary SDK
     if (pathOrUrl.startsWith('http')) {
-        return getSignedUrlFromPublicUrl(pathOrUrl);
+        return pathOrUrl;
     }
 
     // Assume it's a Supabase Storage path
