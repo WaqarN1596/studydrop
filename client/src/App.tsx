@@ -11,6 +11,7 @@ import JoinClass from './pages/JoinClass';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
+import Downloads from './pages/Downloads';
 
 function App() {
     const { user } = useAuthStore();
@@ -56,6 +57,12 @@ function App() {
                 <Route path="/notifications" element={
                     <ProtectedRoute>
                         <Notifications />
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/downloads" element={
+                    <ProtectedRoute>
+                        <Downloads />
                     </ProtectedRoute>
                 } />
 

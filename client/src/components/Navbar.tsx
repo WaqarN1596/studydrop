@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { Bell, LogOut, User, Settings, ChevronDown } from 'lucide-react';
+import { Bell, LogOut, User, Settings, ChevronDown, Download } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import ThemeToggle from './ThemeToggle';
 
@@ -99,6 +99,15 @@ export default function Navbar() {
                                     >
                                         <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                                         <span className="text-sm text-gray-700 dark:text-gray-300">Settings</span>
+                                    </Link>
+
+                                    <Link
+                                        to="/downloads"
+                                        onClick={() => setShowUserMenu(false)}
+                                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <Download className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">Downloads</span>
                                     </Link>
 
                                     <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>

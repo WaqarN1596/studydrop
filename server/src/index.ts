@@ -19,6 +19,7 @@ import commentRoutes from './routes/comments';
 import notificationRoutes from './routes/notifications';
 import adminRoutes from './routes/admin';
 import aiRoutes from './routes/ai';
+import downloadsRoutes from './routes/downloads';
 
 // Import PostgreSQL database connection
 import pool from './db/postgres';
@@ -61,6 +62,7 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/downloads', downloadsRoutes);
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {

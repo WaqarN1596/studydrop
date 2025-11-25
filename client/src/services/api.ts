@@ -81,14 +81,20 @@ export const notificationApi = {
 
 // AI
 export const aiApi = {
-    extractTitle: (data: any) => api.post('/ai/extract-title', data),
-    generateTags: (data: any) => api.post('/ai/tags', data),
-    classify: (data: any) => api.post('/ai/classify', data),
+    extractTitle: (data: { filename: string }) => api.post('/ai/extract-title', data),
+    generateTags: (data: { filename: string }) => api.post('/ai/generate-tags', data),
+    classify: (data: { filename: string }) => api.post('/ai/classify', data),
+    summarize: (data: { filename: string; category: string }) => api.post('/ai/summarize', data),
+    checkDuplicate: (data: { filename: string; classId: number }) => api.post('/ai/check-duplicate', data),
     recommend: (fileId: number) => api.post(`/ai/recommend/${fileId}`),
-    checkDuplicate: (data: any) => api.post('/ai/check-duplicate', data),
     search: (data: any) => api.post('/ai/search', data),
     moderate: (data: any) => api.post('/ai/moderate', data),
-    summarize: (data: any) => api.post('/ai/summarize', data),
+};
+
+// Downloads
+export const downloadApi = {
+    trackDownload: (uploadId: number) => api.post('/downloads', { uploadId }),
+    getDownloadHistory: () => api.get('/downloads'),
 };
 
 // Admin

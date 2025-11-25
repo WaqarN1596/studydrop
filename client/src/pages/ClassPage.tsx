@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { classApi } from '../services/api';
+import { classApi, downloadApi } from '../services/api';
 import { Upload as UploadType } from '../types';
 import { Upload, Search, Filter, X, LogOut, ExternalLink, Download as DownloadIcon } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import UploadModal from '../components/UploadModal';
+import PDFViewerModal from '../components/PDFViewerModal';
+import ImageViewerModal from '../components/ImageViewerModal';
+import Toast from '../components/Toast';
 
 export default function ClassPage() {
     const { id } = useParams();
@@ -17,6 +20,8 @@ export default function ClassPage() {
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [leaving, setLeaving] = useState(false);
+    const [viewerFile, setViewerFile] = useState<{ url: string; filename: string; type: 'pdf' | 'image' } | null>(null);
+    const [showToast, setShowToast] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -74,6 +79,35 @@ export default function ClassPage() {
             alert(err.response?.data?.error || 'Failed to leave class');
         } finally {
             setLeaving(false);
+        }
+    };
+
+    const handleView = (upload: UploadType) => {
+        const isPDF = upload.mimeType?.includes('pdf');
+        setViewerFile({
+            url: upload.url,
+            filename: upload.title || upload.originalFilename,
+            type: isPDF ? 'pdf' : 'image',
+        });
+    };
+
+    const handleDownload = async (upload: UploadType) => {
+        try {
+            // Track the download
+            await downloadApi.trackDownload(upload.id);
+
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = upload.url;
+            link.download = upload.originalFilename;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setShowToast(true);
+        } catch (err) {
+            console.error('Error downloading file:', err);
         }
     };
 
@@ -228,23 +262,20 @@ export default function ClassPage() {
 
                                     {/* Hover Overlay */}
                                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                                        <a
-                                            href={upload.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
+                                        <button
+                                            onClick={() => handleView(upload)}
                                             className="p-2 bg-white rounded-full text-gray-900 hover:bg-primary-50 transition-colors"
                                             title="View File"
                                         >
                                             <ExternalLink className="w-5 h-5" />
-                                        </a>
-                                        <a
-                                            href={upload.url}
-                                            download
+                                        </button>
+                                        <button
+                                            onClick={() => handleDownload(upload)}
                                             className="p-2 bg-white rounded-full text-gray-900 hover:bg-primary-50 transition-colors"
                                             title="Download File"
                                         >
                                             <DownloadIcon className="w-5 h-5" />
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -300,6 +331,25 @@ export default function ClassPage() {
                     onComplete={handleUploadComplete}
                 />
             )}
+
+            {/* Viewers */}
+            {viewerFile && viewerFile.type === 'pdf' && (
+                <PDFViewerModal
+                    url={viewerFile.url}
+                    filename={viewerFile.filename}
+                    onClose={() => setViewerFile(null)}
+                />
+            )}
+            {viewerFile && viewerFile.type === 'image' && (
+                <ImageViewerModal
+                    url={viewerFile.url}
+                    filename={viewerFile.filename}
+                    onClose={() => setViewerFile(null)}
+                />
+            )}
+
+            {/* Toast */}
+            {showToast && <Toast message="File downloaded." onClose={() => setShowToast(false)} />}
         </div>
     );
 }

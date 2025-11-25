@@ -11,9 +11,11 @@ DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS upload_tags CASCADE;
 DROP TABLE IF EXISTS uploads CASCADE;
+DROP TABLE IF EXISTS download_history CASCADE;
 DROP TABLE IF EXISTS user_classes CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS classes CASCADE;
+DROP TABLE IF EXISTS uploads CASCADE;
+DROP TABLE IF EXISTS download_history CASCADE;
+DROP TABLE IF EXISTS user_classes CASCADE;
 DROP TABLE IF EXISTS majors CASCADE;
 DROP TABLE IF EXISTS colleges CASCADE;
 
@@ -107,6 +109,14 @@ CREATE TABLE notifications (
     message TEXT NOT NULL,
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Download history tracking
+CREATE TABLE download_history (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    upload_id INTEGER REFERENCES uploads(id) ON DELETE CASCADE,
+    downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================
