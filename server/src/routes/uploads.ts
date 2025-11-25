@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { query, queryOne, queryAll } from '../db/postgres';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { upload, getFileUrl } from '../middleware/cloudinary'; // Use Cloudinary instead of local storage
+import { upload, getFileUrl, getSignedUrlFromPublicUrl } from '../middleware/cloudinary'; // Use Cloudinary instead of local storage
 
 const router = express.Router();
 
@@ -143,35 +143,9 @@ router.get('/:id', async (req: Request, res: Response) => {
             return res.status(404).json({ error: 'Upload not found' });
         }
 
-        // Generate signed URL
-        // Extract public ID from file path or original filename if needed. 
-        // In our case, we can try to extract it from the stored URL or just use the logic that the filename is the public_id
-        // But wait, we stored the full URL in file_path. 
-        // The public_id in our config is `${timestamp}-${originalName}`.
-        // We need to extract this from the URL.
-        // URL format: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/folder/public_id.extension
-
-        const urlParts = upload.url.split('/');
-        const filenameWithExt = urlParts[urlParts.length - 1];
-        const publicId = `classuploads/${decodeURIComponent(filenameWithExt).split('.')[0]}`; // Assuming folder is 'classuploads'
-
-        // Actually, let's just use the getFileUrl helper which expects a publicId. 
-        // But our getFileUrl helper constructs the full URL.
-        // If we pass the publicId, it will return a signed URL.
-
-        // Better approach: We should store the public_id in the DB. 
-        // But since we didn't, let's try to reconstruct it.
-        // The stored file_path is the secure_url from Cloudinary.
-
-        // Let's try to sign the URL directly if possible, or reconstruct.
-        // Reconstructing public_id:
-        // The stored URL: https://res.cloudinary.com/.../classuploads/timestamp-name.pdf
-        // The public_id: classuploads/timestamp-name
-
-        const matches = upload.url.match(/classuploads\/[^.]+/);
-        if (matches) {
-            const signedUrl = getFileUrl(matches[0]);
-            upload.url = signedUrl;
+        // Generate signed URL from the stored URL
+        if (upload.url) {
+            upload.url = getSignedUrlFromPublicUrl(upload.url);
         }
 
         res.json({ upload });

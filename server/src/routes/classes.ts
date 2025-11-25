@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import { query, queryOne, queryAll } from '../db/postgres';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { getFileUrl } from '../middleware/cloudinary';
+import { getSignedUrlFromPublicUrl } from '../middleware/cloudinary';
 
 const router = express.Router();
 
@@ -184,11 +184,10 @@ router.get('/:id/uploads', async (req: Request, res: Response) => {
 
         // Sign URLs for all uploads
         const uploadsWithSignedUrls = uploads.map((upload: any) => {
-            const matches = upload.url.match(/classuploads\/[^.]+/);
-            if (matches) {
+            if (upload.url) {
                 return {
                     ...upload,
-                    url: getFileUrl(matches[0])
+                    url: getSignedUrlFromPublicUrl(upload.url)
                 };
             }
             return upload;

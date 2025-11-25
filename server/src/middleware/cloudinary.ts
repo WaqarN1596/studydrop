@@ -64,14 +64,48 @@ export const deleteFile = async (publicId: string) => {
 };
 
 // Helper to get file URL
-export const getFileUrl = (publicId: string, format?: string, version?: string) => {
+export const getFileUrl = (publicId: string, format?: string, version?: string, resourceType: string = 'image') => {
     return cloudinary.url(publicId, {
         secure: true,
         sign_url: true,
         type: 'authenticated',
         format: format,
-        version: version
+        version: version,
+        resource_type: resourceType
     });
+};
+
+export const getSignedUrlFromPublicUrl = (publicUrl: string) => {
+    try {
+        // Regex to capture parts: /resource_type/type/v(version)/public_id
+        const regex = /\/([a-z]+)\/([a-z]+)\/v(\d+)\/(.+)$/;
+        const matches = publicUrl.match(regex);
+
+        if (!matches) {
+            console.error('Failed to parse Cloudinary URL:', publicUrl);
+            return publicUrl; // Return original if parsing fails
+        }
+
+        const resourceType = matches[1];
+        // const type = matches[2]; // We force 'authenticated' type for the signed URL
+        const version = matches[3];
+        let publicId = decodeURIComponent(matches[4]);
+        let format = undefined;
+
+        // Handle extension logic
+        if (resourceType === 'image' || resourceType === 'video') {
+            const lastDotIndex = publicId.lastIndexOf('.');
+            if (lastDotIndex !== -1) {
+                format = publicId.substring(lastDotIndex + 1);
+                publicId = publicId.substring(0, lastDotIndex);
+            }
+        }
+
+        return getFileUrl(publicId, format, version, resourceType);
+    } catch (error) {
+        console.error('Error generating signed URL:', error);
+        return publicUrl;
+    }
 };
 
 export default upload;
