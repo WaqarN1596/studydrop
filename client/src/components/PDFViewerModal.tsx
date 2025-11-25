@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ZoomIn, ZoomOut } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker - using unpkg for better reliability
@@ -12,13 +12,15 @@ interface PDFViewerModalProps {
 }
 
 export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModalProps) {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const [pdf, setPdf] = useState<any>(null);
-    const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
     const [scale, setScale] = useState(1.5);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [renderedPages, setRenderedPages] = useState<Set<number>>(new Set());
+    const [pageInput, setPageInput] = useState('');
+    const pageRefs = useRef<{ [key: number]: HTMLCanvasElement | null }>({});
 
     useEffect(() => {
         // Prevent background scrolling
@@ -33,17 +35,17 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
     }, [url]);
 
     useEffect(() => {
-        if (pdf) {
-            renderPage(currentPage);
+        if (pdf && totalPages > 0) {
+            // Render all pages when PDF loads or scale changes
+            renderAllPages();
         }
-    }, [pdf, currentPage, scale]);
+    }, [pdf, scale]);
 
     const loadPDF = async () => {
         try {
             setLoading(true);
             setError('');
 
-            // Fetch the PDF data directly to avoid PDF.js worker CORS/Header issues
             const response = await fetch(url);
 
             if (!response.ok) {
@@ -67,13 +69,28 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
         }
     };
 
+    const renderAllPages = async () => {
+        if (!pdf) return;
+
+        const newRenderedPages = new Set<number>();
+
+        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+            await renderPage(pageNum);
+            newRenderedPages.add(pageNum);
+        }
+
+        setRenderedPages(newRenderedPages);
+    };
+
     const renderPage = async (pageNum: number) => {
-        if (!pdf || !canvasRef.current) return;
+        if (!pdf) return;
+
+        const canvas = pageRefs.current[pageNum];
+        if (!canvas) return;
 
         try {
             const page = await pdf.getPage(pageNum);
             const viewport = page.getViewport({ scale });
-            const canvas = canvasRef.current;
             const context = canvas.getContext('2d');
 
             if (!context) return;
@@ -88,7 +105,7 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
 
             await page.render(renderContext).promise;
         } catch (err) {
-            console.error('Error rendering page:', err);
+            console.error(`Error rendering page ${pageNum}:`, err);
         }
     };
 
@@ -100,12 +117,16 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
         setScale((prev) => Math.max(prev - 0.25, 0.5));
     };
 
-    const handlePrevPage = () => {
-        setCurrentPage((prev) => Math.max(prev - 1, 1));
-    };
-
-    const handleNextPage = () => {
-        setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+    const handlePageJump = (e: React.FormEvent) => {
+        e.preventDefault();
+        const pageNum = parseInt(pageInput);
+        if (pageNum >= 1 && pageNum <= totalPages) {
+            const canvas = pageRefs.current[pageNum];
+            if (canvas) {
+                canvas.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        setPageInput('');
     };
 
     const handleBackdropClick = (e: React.MouseEvent) => {
@@ -157,32 +178,35 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
                         </button>
                     </div>
 
-                    {/* Page Navigation */}
-                    <div className="flex items-center gap-2">
+                    {/* Page Jump */}
+                    <form onSubmit={handlePageJump} className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Page:</span>
+                        <input
+                            type="number"
+                            min="1"
+                            max={totalPages}
+                            value={pageInput}
+                            onChange={(e) => setPageInput(e.target.value)}
+                            placeholder={`1-${totalPages}`}
+                            className="w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        />
                         <button
-                            onClick={handlePrevPage}
-                            disabled={currentPage <= 1}
-                            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            aria-label="Previous page"
+                            type="submit"
+                            className="px-3 py-1 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded transition-colors"
                         >
-                            <ChevronLeft className="w-5 h-5" />
+                            Go
                         </button>
-                        <span className="text-sm font-medium min-w-[5rem] text-center">
-                            {currentPage} / {totalPages}
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                            / {totalPages}
                         </span>
-                        <button
-                            onClick={handleNextPage}
-                            disabled={currentPage >= totalPages}
-                            className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            aria-label="Next page"
-                        >
-                            <ChevronRight className="w-5 h-5" />
-                        </button>
-                    </div>
+                    </form>
                 </div>
 
-                {/* PDF Canvas */}
-                <div className="flex-1 overflow-auto p-4 bg-gray-100 dark:bg-gray-900">
+                {/* PDF Container - Continuous Scroll */}
+                <div
+                    ref={containerRef}
+                    className="flex-1 overflow-auto p-4 bg-gray-100 dark:bg-gray-900"
+                >
                     {loading && (
                         <div className="flex items-center justify-center h-full">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
@@ -194,11 +218,18 @@ export default function PDFViewerModal({ url, filename, onClose }: PDFViewerModa
                         </div>
                     )}
                     {!loading && !error && (
-                        <div className="flex justify-center">
-                            <canvas
-                                ref={canvasRef}
-                                className="shadow-lg bg-white"
-                            />
+                        <div className="flex flex-col items-center gap-4">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                                <div key={pageNum} className="relative">
+                                    <div className="absolute -top-8 left-0 text-sm text-gray-600 dark:text-gray-400">
+                                        Page {pageNum}
+                                    </div>
+                                    <canvas
+                                        ref={(el) => (pageRefs.current[pageNum] = el)}
+                                        className="shadow-lg bg-white"
+                                    />
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
