@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import db from '../db/database';
+import { queryOne } from '../db/postgres';
 
 export interface AuthRequest extends Request {
     user?: {
         id: number;
         email: string;
         role: string;
+        college_id?: number;
     };
     body: any;
     params: any;
@@ -15,7 +16,7 @@ export interface AuthRequest extends Request {
     file?: any;
 }
 
-export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -23,19 +24,21 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
         return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const secret = process.env.JWT_SECRET || 'dev-secret-key-12345';
+    const secret = process.env.JWT_SECRET || 'fallback-secret';
 
     try {
-        const decoded = jwt.verify(token, secret) as { userId: number };
+        const decoded = jwt.verify(token, secret) as any;
 
-        db.get('SELECT * FROM users WHERE id = ?', [decoded.userId], (err: any, user: any) => {
-            if (err || !user) {
-                return res.status(403).json({ error: 'Invalid token' });
-            }
+        // We can just use the decoded token payload if it contains enough info
+        // Or fetch fresh user data from DB
+        const user = await queryOne('SELECT * FROM users WHERE id = $1', [decoded.id]);
 
-            req.user = user;
-            next();
-        });
+        if (!user) {
+            return res.status(403).json({ error: 'Invalid token' });
+        }
+
+        req.user = user;
+        next();
     } catch (error) {
         return res.status(403).json({ error: 'Invalid token' });
     }

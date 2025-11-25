@@ -7,6 +7,16 @@
 -- TABLES
 -- ============================================
 
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS comments CASCADE;
+DROP TABLE IF EXISTS upload_tags CASCADE;
+DROP TABLE IF EXISTS uploads CASCADE;
+DROP TABLE IF EXISTS user_classes CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS classes CASCADE;
+DROP TABLE IF EXISTS majors CASCADE;
+DROP TABLE IF EXISTS colleges CASCADE;
+
 -- Colleges
 CREATE TABLE colleges (
     id SERIAL PRIMARY KEY,
@@ -15,14 +25,11 @@ CREATE TABLE colleges (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Classes
-CREATE TABLE classes (
+-- Majors
+CREATE TABLE majors (
     id SERIAL PRIMARY KEY,
-    college_id INTEGER REFERENCES colleges(id),
+    college_id INTEGER REFERENCES colleges(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
-    code VARCHAR(50) NOT NULL,
-    description TEXT,
-    semester VARCHAR(50),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -31,10 +38,23 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    major VARCHAR(100),
+    passwordHash VARCHAR(255) NOT NULL,
+    college_id INTEGER REFERENCES colleges(id),
+    major_id INTEGER REFERENCES majors(id),
     year INTEGER,
     role VARCHAR(20) DEFAULT 'student',
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Classes
+CREATE TABLE classes (
+    id SERIAL PRIMARY KEY,
+    college_id INTEGER REFERENCES colleges(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(50),
+    description TEXT,
+    semester VARCHAR(50),
+    created_by INTEGER REFERENCES users(id),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -100,6 +120,8 @@ CREATE INDEX idx_user_classes_class ON user_classes(class_id);
 CREATE INDEX idx_comments_upload ON comments(upload_id);
 CREATE INDEX idx_notifications_user ON notifications(user_id);
 CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_majors_college ON majors(college_id);
+CREATE INDEX idx_classes_college ON classes(college_id);
 
 -- ============================================
 -- SEED DATA (Sample Data for Testing)
@@ -107,66 +129,57 @@ CREATE INDEX idx_users_email ON users(email);
 
 -- Insert Colleges
 INSERT INTO colleges (name, location) VALUES
+('University of Massachusetts Lowell', 'Lowell, MA'),
 ('Massachusetts Institute of Technology', 'Cambridge, MA'),
 ('Stanford University', 'Stanford, CA'),
 ('Harvard University', 'Cambridge, MA'),
-('University of California Berkeley', 'Berkeley, CA'),
-('Carnegie Mellon University', 'Pittsburgh, PA');
+('University of California Berkeley', 'Berkeley, CA');
 
--- Insert Classes
-INSERT INTO classes (college_id, name, code, description, semester) VALUES
--- MIT Classes
-(1, 'Introduction to Computer Science', 'CS101', 'Fundamentals of programming and computational thinking', 'Fall 2024'),
-(1, 'Data Structures and Algorithms', 'CS201', 'Advanced data structures and algorithmic analysis', 'Fall 2024'),
-(1, 'Linear Algebra', 'MATH203', 'Vector spaces, matrices, and linear transformations', 'Fall 2024'),
-(1, 'Calculus II', 'MATH102', 'Integration techniques and infinite series', 'Fall 2024'),
+-- Insert Majors (Sample for UMass Lowell)
+INSERT INTO majors (college_id, name) VALUES
+(1, 'Computer Science'),
+(1, 'Information Technology'),
+(1, 'Mechanical Engineering'),
+(1, 'Business Administration'),
+(1, 'Psychology'),
+(1, 'Biology'),
+(1, 'Nursing'),
+(1, 'Criminal Justice');
 
--- Stanford Classes  
-(2, 'Machine Learning', 'CS229', 'Introduction to machine learning and AI', 'Fall 2024'),
-(2, 'Database Systems', 'CS145', 'Database design and SQL', 'Fall 2024'),
-(2, 'Operating Systems', 'CS140', 'Process management and system calls', 'Fall 2024'),
+-- Insert Majors (Sample for MIT)
+INSERT INTO majors (college_id, name) VALUES
+(2, 'Computer Science and Engineering'),
+(2, 'Electrical Engineering'),
+(2, 'Mathematics'),
+(2, 'Physics');
 
--- Harvard Classes
-(3, 'Introduction to Psychology', 'PSY101', 'Survey of psychological principles', 'Fall 2024'),
-(3, 'Organic Chemistry', 'CHEM202', 'Chemical reactions and synthesis', 'Fall 2024'),
-(3, 'American History', 'HIST150', 'US history from colonial times to present', 'Fall 2024');
+-- Insert Users (password: password123)
+INSERT INTO users (name, email, passwordHash, college_id, major_id, year, role) VALUES
+('Alice Johnson', 'alice@example.com', '$2b$10$rBV2LYYsH3qH.lq2vO7Ln.QxO0kN3bZ7qF8wXKJdJZxJNGXPFQK5G', 1, 1, 3, 'student'),
+('Bob Smith', 'bob@example.com', '$2b$10$rBV2LYYsH3qH.lq2vO7Ln.QxO0kN3bZ7qF8wXKJdJZxJNGXPFQK5G', 1, 2, 2, 'student'),
+('Admin User', 'admin@example.com', '$2b$10$rBV2LYYsH3qH.lq2vO7Ln.QxO0kN3bZ7qF8wXKJdJZxJNGXPFQK5G', 1, 1, 4, 'admin');
 
--- Create Test User (password: password123)
--- Password hash created with bcrypt
-INSERT INTO users (name, email, password, major, year, role) VALUES
-('Alice Johnson', 'alice@example.com', '$2b$10$rBV2LYYsH3qH.lq2vO7Ln.QxO0kN3bZ7qF8wXKJdJZxJNGXPFQK5G', 'Computer Science', 3, 'student'),
-('Bob Smith', 'bob@example.com', '$2b$10$rBV2LYYsH3qH.lq2vO7Ln.QxO0kN3bZ7qF8wXKJdJZxJNGXPFQK5G', 'Mathematics', 2, 'student'),
-('Admin User', 'admin@example.com', '$2b$10$rBV2LYYsH3qH.lq2vO7Ln.QxO0kN3bZ7qF8wXKJdJZxJNGXPFQK5G', NULL, NULL, 'admin');
+-- Insert Classes (UMass Lowell)
+INSERT INTO classes (college_id, name, code, description, semester, created_by) VALUES
+(1, 'Computing I', 'COMP.1010', 'Introduction to C programming', 'Fall 2024', 3),
+(1, 'Computing II', 'COMP.1020', 'Object-oriented programming in C++', 'Fall 2024', 3),
+(1, 'Calculus I', 'MATH.1310', 'Differential calculus', 'Fall 2024', 3),
+(1, 'Calculus II', 'MATH.1320', 'Integral calculus', 'Fall 2024', 3),
+(1, 'College Writing I', 'ENGL.1010', 'Academic writing fundamentals', 'Fall 2024', 3),
+(1, 'General Chemistry I', 'CHEM.1210', 'Principles of chemistry', 'Fall 2024', 3),
+(1, 'Introduction to Psychology', 'PSYC.1010', 'Survey of psychological concepts', 'Fall 2024', 3);
+
+-- Insert Classes (MIT)
+INSERT INTO classes (college_id, name, code, description, semester, created_by) VALUES
+(2, 'Introduction to Computer Science', 'CS101', 'Fundamentals of programming', 'Fall 2024', 3),
+(2, 'Data Structures', 'CS201', 'Algorithms and data structures', 'Fall 2024', 3);
 
 -- Enroll users in classes
 INSERT INTO user_classes (user_id, class_id, semester) VALUES
 (1, 1, 'Fall 2024'),
-(1, 2, 'Fall 2024'),
-(1, 5, 'Fall 2024'),
-(2, 3, 'Fall 2024'),
-(2, 4, 'Fall 2024');
-
--- ============================================
--- VERIFICATION QUERIES
--- ============================================
-
--- Check table counts
-SELECT 'colleges' as table_name, COUNT(*) as count FROM colleges
-UNION ALL
-SELECT 'classes', COUNT(*) FROM classes
-UNION ALL
-SELECT 'users', COUNT(*) FROM users
-UNION ALL
-SELECT 'user_classes', COUNT(*) FROM user_classes;
-
--- List all classes with college names
-SELECT c.code, c.name, col.name as college, c.semester
-FROM classes c
-JOIN colleges col ON c.college_id = col.id
-ORDER BY col.name, c.code;
+(1, 3, 'Fall 2024'),
+(2, 2, 'Fall 2024');
 
 -- ============================================
 -- DONE! ✅
 -- ============================================
--- Your database is ready for ClassUploads!
--- Login with: alice@example.com / password123

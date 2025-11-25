@@ -1,54 +1,93 @@
 import express, { Request, Response } from 'express';
-import db from '../db/database';
+import { query, queryOne, queryAll } from '../db/postgres';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
 // Add comment to upload
-router.post('/', authenticateToken, (req: AuthRequest, res: Response) => {
-    const { uploadId, content } = req.body;
-    const userId = req.user?.id;
+router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const { uploadId, content } = req.body;
+        const userId = req.user?.id;
 
-    if (!uploadId || !content) {
-        return res.status(400).json({ error: 'Upload ID and content are required' });
-    }
+        // Sanitize content
+        const sanitizedContent = content.trim();
 
-    // Sanitize content (basic XSS prevention)
-    const sanitizedContent = content.replace(/<script>/gi, '').replace(/<\/script>/gi, '');
+        if (!sanitizedContent) {
+            return res.status(400).json({ error: 'Comment cannot be empty' });
+        }
 
-    db.run(
-        'INSERT INTO comments (uploadId, userId, content) VALUES (?, ?, ?)',
-        [uploadId, userId, sanitizedContent],
-        function (err) {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to add comment' });
-            }
+        // Insert comment
+        const result = await query(
+            'INSERT INTO comments (upload_id, user_id, content) VALUES ($1, $2, $3) RETURNING *',
+            [uploadId, userId, sanitizedContent]
+        );
 
-            // Notify upload owner
-            db.get('SELECT userId FROM uploads WHERE id = ?', [uploadId], (err, upload: any) => {
-                if (!err && upload && upload.userId !== userId) {
-                    db.run(
-                        'INSERT INTO notifications (userId, type, data) VALUES (?, ?, ?)',
-                        [upload.userId, 'new_comment', JSON.stringify({ uploadId, commentId: this.lastID })]
-                    );
-                }
-            });
+        const comment = result.rows[0];
 
-            db.get(
-                `SELECT comments.*, users.name as userName, users.profilePicture
-         FROM comments
-         LEFT JOIN users ON comments.userId = users.id
-         WHERE comments.id = ?`,
-                [this.lastID],
-                (err, comment) => {
-                    if (err) {
-                        return res.status(500).json({ error: 'Failed to fetch comment' });
-                    }
-                    res.status(201).json({ comment });
-                }
+        // Get upload owner
+        const upload = await queryOne(
+            'SELECT user_id, title FROM uploads WHERE id = $1',
+            [uploadId]
+        );
+
+        // Create notification for upload owner (if not self)
+        if (upload && upload.user_id !== userId) {
+            await query(
+                'INSERT INTO notifications (user_id, type, message) VALUES ($1, $2, $3)',
+                [
+                    upload.user_id,
+                    'new_comment',
+                    `New comment on your upload: ${upload.title}`
+                ]
             );
         }
-    );
+
+        // Get comment with user info
+        const fullComment = await queryOne(
+            `SELECT c.*, u.name as user_name, u.email as user_email
+             FROM comments c
+             LEFT JOIN users u ON c.user_id = u.id
+             WHERE c.id = $1`,
+            [comment.id]
+        );
+
+        res.status(201).json({ comment: fullComment });
+    } catch (error: any) {
+        console.error('Add comment error:', error);
+        res.status(500).json({ error: 'Failed to add comment' });
+    }
+});
+
+// Delete comment
+router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+        const isAdmin = req.user?.role === 'admin';
+
+        // Check ownership
+        const comment = await queryOne(
+            'SELECT * FROM comments WHERE id = $1',
+            [id]
+        );
+
+        if (!comment) {
+            return res.status(404).json({ error: 'Comment not found' });
+        }
+
+        if (comment.user_id !== userId && !isAdmin) {
+            return res.status(403).json({ error: 'Not authorized to delete this comment' });
+        }
+
+        // Delete comment
+        await query('DELETE FROM comments WHERE id = $1', [id]);
+
+        res.json({ message: 'Comment deleted successfully' });
+    } catch (error: any) {
+        console.error('Delete comment error:', error);
+        res.status(500).json({ error: 'Failed to delete comment' });
+    }
 });
 
 export default router;

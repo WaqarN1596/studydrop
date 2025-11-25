@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Welcome from './pages/Welcome';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import ClassPage from './pages/ClassPage';
 import JoinClass from './pages/JoinClass';
@@ -19,7 +20,8 @@ function App() {
             <Routes>
                 <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Welcome />} />
                 <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-                <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/onboarding" element={<Onboarding />} />
 
                 <Route path="/dashboard" element={
                     <ProtectedRoute>

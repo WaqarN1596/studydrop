@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const api = axios.create({
-    baseURL: 'https://studydrop-api.onrender.com/api',
+    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
 });
 
 // Add auth token to requests
@@ -44,6 +44,7 @@ export const userApi = {
 // Colleges & Classes
 export const collegeApi = {
     getColleges: () => api.get('/colleges'),
+    getMajors: (collegeId: number) => api.get(`/colleges/${collegeId}/majors`),
 };
 
 export const classApi = {

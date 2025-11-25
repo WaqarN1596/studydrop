@@ -6,7 +6,7 @@ import Navbar from '../components/Navbar';
 
 export default function Settings() {
     const { user } = useAuthStore();
-    const { theme, toggleTheme } = useThemeStore();
+    const { isDark, toggleTheme } = useThemeStore();
     const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'privacy' | 'appearance'>('profile');
 
     // Mock settings state
@@ -240,8 +240,8 @@ export default function Settings() {
 
                                             <div className="grid grid-cols-2 gap-4">
                                                 <button
-                                                    onClick={() => theme === 'dark' && toggleTheme()}
-                                                    className={`p-4 rounded-xl border-2 transition-all ${theme === 'light'
+                                                    onClick={() => isDark && toggleTheme()}
+                                                    className={`p-4 rounded-xl border-2 transition-all ${!isDark
                                                             ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
                                                             : 'border-gray-200 dark:border-gray-700 hover:border-primary-400'
                                                         }`}
@@ -251,8 +251,8 @@ export default function Settings() {
                                                 </button>
 
                                                 <button
-                                                    onClick={() => theme === 'light' && toggleTheme()}
-                                                    className={`p-4 rounded-xl border-2 transition-all ${theme === 'dark'
+                                                    onClick={() => !isDark && toggleTheme()}
+                                                    className={`p-4 rounded-xl border-2 transition-all ${isDark
                                                             ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
                                                             : 'border-gray-200 dark:border-gray-700 hover:border-primary-400'
                                                         }`}

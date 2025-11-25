@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { classApi, uploadApi } from '../services/api';
+import { classApi } from '../services/api';
 import { Upload as UploadType } from '../types';
 import { Upload, Search, Filter, X, LogOut } from 'lucide-react';
 import Navbar from '../components/Navbar';
@@ -39,9 +39,9 @@ export default function ClassPage() {
         // Filter by search query
         if (searchQuery) {
             filtered = filtered.filter(u =>
-                u.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                u.originalFilename?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                u.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (u.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (u.originalFilename || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (u.summary || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                 u.tags?.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
             );
         }
@@ -170,7 +170,7 @@ export default function ClassPage() {
                                     <option value="all">All Categories</option>
                                     {categories.map((category) => (
                                         <option key={category} value={category}>
-                                            {category?.charAt(0).toUpperCase() + category?.slice(1)}
+                                            {(category || "").charAt(0).toUpperCase() + (category || "").slice(1)}
                                         </option>
                                     ))}
                                 </select>

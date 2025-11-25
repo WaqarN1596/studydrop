@@ -1,6 +1,6 @@
-# ClassUploads Platform
+# StudyDrop Platform
 
-A modern, full-stack web application for college students to upload, share, and discover class materials with AI-powered features.
+**A modern platform for students to share and discover class materials** with AI-powered features.
 
 ![Built with](https://img.shields.io/badge/Built%20with-TypeScript-blue)
 ![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-cyan)

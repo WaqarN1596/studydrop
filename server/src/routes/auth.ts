@@ -9,7 +9,7 @@ const router = express.Router();
 // Register
 router.post('/register', async (req, res: Response) => {
     try {
-        const { name, email, password, major, year } = req.body;
+        const { name, email, password, collegeId, year } = req.body;
 
         // Check if user exists
         const existingUser = await queryOne(
@@ -24,18 +24,18 @@ router.post('/register', async (req, res: Response) => {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
+        // Create user (major_id is null initially, set in onboarding)
         const result = await query(
-            `INSERT INTO users (name, email, passwordHash, major, year, role) 
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, major, year, role`,
-            [name, email, hashedPassword, major, year, 'student']
+            `INSERT INTO users (name, email, passwordHash, college_id, year, role) 
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, college_id, major_id, year, role`,
+            [name, email, hashedPassword, collegeId, year, 'student']
         );
 
         const user = result.rows[0];
 
         // Generate JWT
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
+            { id: user.id, email: user.email, role: user.role, college_id: user.college_id },
             process.env.JWT_SECRET || 'fallback-secret',
             { expiresIn: '7d' }
         );
@@ -62,15 +62,21 @@ router.post('/login', async (req, res: Response) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Check password
-        const dbPassword = user.passwordHash || user.passwordhash; if (!dbPassword) { return res.status(500).json({ error: "Login failed: password hash missing" }); } const validPassword = await bcrypt.compare(password, dbPassword);
+        // Check password (handle both camelCase and lowercase from Postgres)
+        const dbPassword = user.passwordHash || user.passwordhash;
+        if (!dbPassword) {
+            console.error('Password hash not found in user record');
+            return res.status(500).json({ error: 'Login failed' });
+        }
+        const validPassword = await bcrypt.compare(password, dbPassword);
+
         if (!validPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         // Generate JWT
         const token = jwt.sign(
-            { id: user.id, email: user.email, role: user.role },
+            { id: user.id, email: user.email, role: user.role, college_id: user.college_id },
             process.env.JWT_SECRET || 'fallback-secret',
             { expiresIn: '7d' }
         );
@@ -88,7 +94,7 @@ router.post('/login', async (req, res: Response) => {
 router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
         const user = await queryOne(
-            'SELECT id, name, email, major, year, role, created_at FROM users WHERE id = $1',
+            'SELECT id, name, email, college_id, major_id, year, role, created_at FROM users WHERE id = $1',
             [req.user?.id]
         );
 

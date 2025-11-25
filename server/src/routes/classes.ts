@@ -1,170 +1,203 @@
 import express, { Request, Response } from 'express';
-import db from '../db/database';
+import { query, queryOne, queryAll } from '../db/postgres';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-// Get all classes (with optional college filter)
-router.get('/', (req: Request, res: Response) => {
-    const { collegeId } = req.query;
+// Get all classes (with optional college filter and search)
+router.get('/', async (req: Request, res: Response) => {
+    try {
+        const { collegeId, search } = req.query;
 
-    let query = 'SELECT * FROM classes';
-    const params: any[] = [];
+        let sqlQuery = 'SELECT * FROM classes WHERE 1=1';
+        const params: any[] = [];
 
-    if (collegeId) {
-        query += ' WHERE collegeId = ?';
-        params.push(collegeId);
-    }
-
-    query += ' ORDER BY name';
-
-    db.all(query, params, (err, classes) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to fetch classes' });
+        if (collegeId) {
+            params.push(collegeId);
+            sqlQuery += ` AND college_id = $${params.length}`;
         }
+
+        if (search) {
+            params.push(`%${search}%`);
+            sqlQuery += ` AND (name ILIKE $${params.length} OR code ILIKE $${params.length})`;
+        }
+
+        sqlQuery += ' ORDER BY name';
+
+        const classes = await queryAll(sqlQuery, params);
         res.json({ classes });
-    });
+    } catch (error: any) {
+        console.error('Get classes error:', error);
+        res.status(500).json({ error: 'Failed to fetch classes' });
+    }
 });
 
 // Get single class details
-router.get('/:id', (req: Request, res: Response) => {
-    const { id } = req.params;
+router.get('/:id', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
 
-    db.get('SELECT * FROM classes WHERE id = ?', [id], (err, classData) => {
-        if (err || !classData) {
+        const classData = await queryOne(
+            'SELECT * FROM classes WHERE id = $1',
+            [id]
+        );
+
+        if (!classData) {
             return res.status(404).json({ error: 'Class not found' });
         }
+
         res.json({ class: classData });
-    });
+    } catch (error: any) {
+        console.error('Get class error:', error);
+        res.status(500).json({ error: 'Failed to fetch class' });
+    }
 });
 
 // Create custom class
-router.post('/', authenticateToken, (req: AuthRequest, res: Response) => {
-    const { collegeId, name, code, description } = req.body;
+router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const { collegeId, name, code, description, semester } = req.body;
+        const userId = req.user?.id;
 
-    if (!collegeId || !name || !code) {
-        return res.status(400).json({ error: 'College ID, name, and code are required' });
-    }
-
-    db.run(
-        'INSERT INTO classes (collegeId, name, code, description) VALUES (?, ?, ?, ?)',
-        [collegeId, name, code, description],
-        function (err) {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to create class' });
-            }
-
-            db.get('SELECT * FROM classes WHERE id = ?', [this.lastID], (err, newClass) => {
-                if (err) {
-                    return res.status(500).json({ error: 'Failed to fetch created class' });
-                }
-                res.status(201).json({ class: newClass });
-            });
+        if (!collegeId || !name || !code) {
+            return res.status(400).json({ error: 'College ID, name, and code are required' });
         }
-    );
+
+        // Check for duplicate
+        const existing = await queryOne(
+            'SELECT * FROM classes WHERE college_id = $1 AND code = $2',
+            [collegeId, code]
+        );
+
+        if (existing) {
+            return res.status(400).json({ error: 'Class with this code already exists for this college' });
+        }
+
+        const result = await query(
+            'INSERT INTO classes (college_id, name, code, description, semester, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [collegeId, name, code, description, semester || 'Fall 2024', userId]
+        );
+
+        const newClass = result.rows[0];
+
+        // Automatically enroll the creator
+        await query(
+            'INSERT INTO user_classes (user_id, class_id, semester) VALUES ($1, $2, $3)',
+            [userId, newClass.id, semester || 'Fall 2024']
+        );
+
+        res.status(201).json({ class: newClass });
+    } catch (error: any) {
+        console.error('Create class error:', error);
+        res.status(500).json({ error: 'Failed to create class' });
+    }
 });
 
 // Join a class
-router.post('/join', authenticateToken, (req: AuthRequest, res: Response) => {
-    const { classId, semester } = req.body;
-    const userId = req.user?.id;
+router.post('/join', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const { classId, semester } = req.body;
+        const userId = req.user?.id;
 
-    if (!classId) {
-        return res.status(400).json({ error: 'Class ID is required' });
-    }
-
-    db.run(
-        'INSERT OR IGNORE INTO user_classes (userId, classId, semester) VALUES (?, ?, ?)',
-        [userId, classId, semester || 'Fall 2024'],
-        function (err) {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to join class' });
-            }
-
-            if (this.changes === 0) {
-                return res.status(400).json({ error: 'Already enrolled in this class' });
-            }
-
-            res.status(201).json({ message: 'Successfully joined class' });
+        if (!classId) {
+            return res.status(400).json({ error: 'Class ID is required' });
         }
-    );
+
+        // Check if already enrolled
+        const existing = await queryOne(
+            'SELECT * FROM user_classes WHERE user_id = $1 AND class_id = $2',
+            [userId, classId]
+        );
+
+        if (existing) {
+            return res.status(400).json({ error: 'Already enrolled in this class' });
+        }
+
+        // Join class
+        await query(
+            'INSERT INTO user_classes (user_id, class_id, semester) VALUES ($1, $2, $3)',
+            [userId, classId, semester || 'Fall 2024']
+        );
+
+        res.status(201).json({ message: 'Successfully joined class' });
+    } catch (error: any) {
+        console.error('Join class error:', error);
+        res.status(500).json({ error: 'Failed to join class' });
+    }
 });
 
 // Leave a class
-router.post('/leave', authenticateToken, (req: AuthRequest, res: Response) => {
-    const { classId } = req.body;
-    const userId = req.user?.id;
+router.post('/leave', authenticateToken, async (req: AuthRequest, res: Response) => {
+    try {
+        const { classId } = req.body;
+        const userId = req.user?.id;
 
-    if (!classId) {
-        return res.status(400).json({ error: 'Class ID is required' });
-    }
-
-    db.run(
-        'DELETE FROM user_classes WHERE userId = ? AND classId = ?',
-        [userId, classId],
-        function (err) {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to leave class' });
-            }
-
-            if (this.changes === 0) {
-                return res.status(400).json({ error: 'Not enrolled in this class' });
-            }
-
-            res.json({ message: 'Successfully left class' });
+        if (!classId) {
+            return res.status(400).json({ error: 'Class ID is required' });
         }
-    );
+
+        const result = await query(
+            'DELETE FROM user_classes WHERE user_id = $1 AND class_id = $2',
+            [userId, classId]
+        );
+
+        if (result.rowCount === 0) {
+            return res.status(400).json({ error: 'Not enrolled in this class' });
+        }
+
+        res.json({ message: 'Successfully left class' });
+    } catch (error: any) {
+        console.error('Leave class error:', error);
+        res.status(500).json({ error: 'Failed to leave class' });
+    }
 });
 
 // Get class uploads
-router.get('/:id/uploads', (req: Request, res: Response) => {
-    const { id } = req.params;
+router.get('/:id/uploads', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
 
-    const query = `
-    SELECT uploads.*, users.name as uploaderName,
-           GROUP_CONCAT(upload_tags.tag) as tags
-    FROM uploads
-    LEFT JOIN users ON uploads.userId = users.id
-    LEFT JOIN upload_tags ON uploads.id = upload_tags.uploadId
-    WHERE uploads.classId = ?
-    GROUP BY uploads.id
-    ORDER BY uploads.createdAt DESC
-  `;
+        const uploads = await queryAll(
+            `SELECT u.*, 
+                    us.name as uploader_name,
+                    ARRAY_AGG(ut.tag) FILTER (WHERE ut.tag IS NOT NULL) as tags
+             FROM uploads u
+             LEFT JOIN users us ON u.user_id = us.id
+             LEFT JOIN upload_tags ut ON u.id = ut.upload_id
+             WHERE u.class_id = $1
+             GROUP BY u.id, us.name
+             ORDER BY u.created_at DESC`,
+            [id]
+        );
 
-    db.all(query, [id], (err, uploads) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to fetch uploads' });
-        }
-
-        const formattedUploads = uploads.map((upload: any) => ({
-            ...upload,
-            tags: upload.tags ? upload.tags.split(',') : []
-        }));
-
-        res.json({ uploads: formattedUploads });
-    });
+        res.json({ uploads });
+    } catch (error: any) {
+        console.error('Get class uploads error:', error);
+        res.status(500).json({ error: 'Failed to fetch uploads' });
+    }
 });
 
 // Get class discussions (comments from all uploads in class)
-router.get('/:id/discussions', (req: Request, res: Response) => {
-    const { id } = req.params;
+router.get('/:id/discussions', async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
 
-    const query = `
-    SELECT comments.*, users.name as userName, uploads.title as uploadTitle
-    FROM comments
-    LEFT JOIN users ON comments.userId = users.id
-    LEFT JOIN uploads ON comments.uploadId = uploads.id
-    WHERE uploads.classId = ?
-    ORDER BY comments.createdAt DESC
-    LIMIT 50
-  `;
+        const discussions = await queryAll(
+            `SELECT c.*, u.name as user_name, up.title as upload_title
+             FROM comments c
+             LEFT JOIN users u ON c.user_id = u.id
+             LEFT JOIN uploads up ON c.upload_id = up.id
+             WHERE up.class_id = $1
+             ORDER BY c.created_at DESC
+             LIMIT 50`,
+            [id]
+        );
 
-    db.all(query, [id], (err, discussions) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to fetch discussions' });
-        }
         res.json({ discussions });
-    });
+    } catch (error: any) {
+        console.error('Get discussions error:', error);
+        res.status(500).json({ error: 'Failed to fetch discussions' });
+    }
 });
 
 export default router;

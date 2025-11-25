@@ -1,5 +1,5 @@
 import express, { Response } from 'express';
-import db from '../db/database';
+import { query, queryOne, queryAll } from '../db/postgres';
 import { authenticateToken, AuthRequest, requireAdmin } from '../middleware/auth';
 
 const router = express.Router();
@@ -9,103 +9,71 @@ router.use(authenticateToken);
 router.use(requireAdmin);
 
 // Get all uploads (with pagination)
-router.get('/uploads', (req: AuthRequest, res: Response) => {
-    const limit = parseInt(req.query.limit as string) || 50;
-    const offset = parseInt(req.query.offset as string) || 0;
+router.get('/uploads', async (req: AuthRequest, res: Response) => {
+    try {
+        const limit = parseInt(req.query.limit as string) || 50;
+        const offset = parseInt(req.query.offset as string) || 0;
 
-    const query = `
-    SELECT uploads.*, users.name as uploaderName, classes.name as className,
-           GROUP_CONCAT(upload_tags.tag) as tags
-    FROM uploads
-    LEFT JOIN users ON uploads.userId = users.id
-    LEFT JOIN classes ON uploads.classId = classes.id
-    LEFT JOIN upload_tags ON uploads.id = upload_tags.uploadId
-    GROUP BY uploads.id
-    ORDER BY uploads.createdAt DESC
-    LIMIT ? OFFSET ?
-  `;
+        const uploads = await queryAll(
+            `SELECT u.*, us.name as uploader_name, c.name as class_name,
+                    ARRAY_AGG(ut.tag) FILTER (WHERE ut.tag IS NOT NULL) as tags
+             FROM uploads u
+             LEFT JOIN users us ON u.user_id = us.id
+             LEFT JOIN classes c ON u.class_id = c.id
+             LEFT JOIN upload_tags ut ON u.id = ut.upload_id
+             GROUP BY u.id, us.name, c.name
+             ORDER BY u.created_at DESC
+             LIMIT $1 OFFSET $2`,
+            [limit, offset]
+        );
 
-    db.all(query, [limit, offset], (err, uploads) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to fetch uploads' });
-        }
-
-        const formattedUploads = uploads.map((upload: any) => ({
-            ...upload,
-            tags: upload.tags ? upload.tags.split(',') : []
-        }));
-
-        res.json({ uploads: formattedUploads });
-    });
+        res.json({ uploads });
+    } catch (error: any) {
+        console.error('Admin get uploads error:', error);
+        res.status(500).json({ error: 'Failed to fetch uploads' });
+    }
 });
 
 // Delete upload (admin)
-router.delete('/uploads/:id', (req: AuthRequest, res: Response) => {
-    const { id } = req.params;
-    const adminId = req.user?.id;
+router.delete('/uploads/:id', async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
 
-    db.get('SELECT * FROM uploads WHERE id = ?', [id], (err, upload) => {
-        if (err || !upload) {
+        const upload = await queryOne(
+            'SELECT * FROM uploads WHERE id = $1',
+            [id]
+        );
+
+        if (!upload) {
             return res.status(404).json({ error: 'Upload not found' });
         }
 
-        db.run('DELETE FROM uploads WHERE id = ?', [id], (err) => {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to delete upload' });
-            }
+        await query('DELETE FROM uploads WHERE id = $1', [id]);
 
-            // Log admin action
-            db.run(
-                'INSERT INTO admin_logs (action, adminId, payload) VALUES (?, ?, ?)',
-                ['delete_upload', adminId, JSON.stringify({ uploadId: id })]
-            );
-
-            res.json({ message: 'Upload deleted successfully' });
-        });
-    });
+        res.json({ message: 'Upload deleted successfully' });
+    } catch (error: any) {
+        console.error('Admin delete upload error:', error);
+        res.status(500).json({ error: 'Failed to delete upload' });
+    }
 });
 
 // Get all users
-router.get('/users', (req: AuthRequest, res: Response) => {
-    const query = `
-    SELECT id, name, email, major, year, role, createdAt,
-           (SELECT COUNT(*) FROM uploads WHERE userId = users.id) as uploadCount
-    FROM users
-    ORDER BY createdAt DESC
-  `;
+router.get('/users', async (req: AuthRequest, res: Response) => {
+    try {
+        const users = await queryAll(
+            `SELECT u.id, u.name, u.email, u.major, u.year, u.role, u.created_at,
+                    COUNT(up.id) as upload_count
+             FROM users u
+             LEFT JOIN uploads up ON u.id = up.user_id
+             GROUP BY u.id
+             ORDER BY u.created_at DESC`
+        );
 
-    db.all(query, [], (err, users) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to fetch users' });
-        }
         res.json({ users });
-    });
-});
-
-// Get admin logs
-router.get('/logs', (req: AuthRequest, res: Response) => {
-    const limit = parseInt(req.query.limit as string) || 100;
-
-    const query = `
-    SELECT admin_logs.*, users.name as adminName
-    FROM admin_logs
-    LEFT JOIN users ON admin_logs.adminId = users.id
-    ORDER BY admin_logs.createdAt DESC
-    LIMIT ?
-  `;
-
-    db.all(query, [limit], (err, logs) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to fetch logs' });
-        }
-
-        const formattedLogs = logs.map((log: any) => ({
-            ...log,
-            payload: log.payload ? JSON.parse(log.payload) : null
-        }));
-
-        res.json({ logs: formattedLogs });
-    });
+    } catch (error: any) {
+        console.error('Admin get users error:', error);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
 });
 
 export default router;

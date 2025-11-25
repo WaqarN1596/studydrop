@@ -14,7 +14,7 @@ export default function Welcome() {
                     </div>
 
                     <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-                        Welcome to <span className="text-primary-600">ClassUploads</span>
+                        Welcome to <span className="text-primary-600">StudyDrop</span>
                     </h1>
 
                     <p className="text-xl text-gray-600 dark:text-gray-300 mb-12 max-w-3xl mx-auto">
@@ -104,7 +104,7 @@ export default function Welcome() {
 
             {/* Footer */}
             <div className="text-center py-8 text-gray-600 dark:text-gray-400">
-                <p>&copy; 2024 ClassUploads. Built for students, by students.</p>
+                <p>&copy; 2024 StudyDrop. Built for students, by students.</p>
             </div>
         </div>
     );
