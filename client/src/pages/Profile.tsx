@@ -66,14 +66,18 @@ export default function Profile() {
     }, [categoryFilter, classFilter, uploads]);
 
     const handleView = (upload: any) => {
-        const isPDF = upload.mimeType?.includes('pdf');
+        // Backend returns file_path and mime_type (snake_case)
+        const fileUrl = upload.file_path || upload.url;
+        const mimeType = upload.mime_type || upload.mimeType;
+        const isPDF = mimeType?.includes('pdf');
+
         // Use backend API URL for proxy
         const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://studydrop-api.onrender.com/api';
-        const proxyUrl = `${apiBaseUrl}/proxy?url=${encodeURIComponent(upload.url)}`;
+        const proxyUrl = `${apiBaseUrl}/proxy?url=${encodeURIComponent(fileUrl)}`;
 
         setViewerFile({
-            url: isPDF ? proxyUrl : upload.url,
-            filename: upload.title || upload.originalFilename,
+            url: isPDF ? proxyUrl : fileUrl,
+            filename: upload.title || upload.original_filename || upload.originalFilename,
             type: isPDF ? 'pdf' : 'image',
         });
     };
