@@ -220,9 +220,9 @@ export const getAIModelInfo = async (req: AuthRequest, res: Response) => {
             fallbackModel: FALLBACK_MODEL,
             provider: 'Google Gemini',
             limits: {
-                rpm: 'Unlimited (Free Tier)',
-                tpm: '1M tokens/min',
-                rpd: 'Unlimited'
+                rpm: '15 RPM',
+                tpm: '250k TPM',
+                rpd: '1,000 RPD'
             },
             capabilities: ['text', 'pdf', 'image']
         });
