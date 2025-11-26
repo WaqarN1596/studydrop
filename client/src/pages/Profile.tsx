@@ -28,6 +28,16 @@ export default function Profile() {
                 userApi.getUserClasses(user.id),
             ]).then(([uploadsRes, classesRes]) => {
                 const userUploads = uploadsRes.data.uploads;
+
+                // Debug: Log what we received
+                if (userUploads && userUploads.length > 0) {
+                    console.log('=== PROFILE DEBUG ===');
+                    console.log('First upload received:', userUploads[0]);
+                    console.log('Has created_at?', userUploads[0].created_at);
+                    console.log('Has file_path?', userUploads[0].file_path);
+                    console.log('Has mime_type?', userUploads[0].mime_type);
+                }
+
                 setUploads(userUploads);
                 setFilteredUploads(userUploads);
                 setClasses(classesRes.data.classes);
