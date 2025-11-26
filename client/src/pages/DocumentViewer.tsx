@@ -1,15 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, MessageSquare, FileText } from 'lucide-react';
+import { ArrowLeft, Download, MessageSquare, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { uploadsApi, commentsApi } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 interface Upload {
     id: number;
     title: string;
     original_filename: string;
-    url: string;  // Backend returns this as "url", not "file_path"
-    mimeType: string;  // Backend returns camelCase, not snake_case
+    url: string;
+    mimeType: string;
     category: string;
     summary: string;
     created_at: string;
@@ -36,7 +40,16 @@ export default function DocumentViewer() {
     const [loading, setLoading] = useState(true);
     const [loadingComments, setLoadingComments] = useState(true);
     const [postingComment, setPostingComment] = useState(false);
-    const [activeTab, setActiveTab] = useState<'document' | 'comments'>('document');
+
+    // PDF viewer state
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [pdf, setPdf] = useState<any>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
+    const [scale, setScale] = useState(1.5);
+    const [rotation, setRotation] = useState(0);
+    const [pdfLoading, setPdfLoading] = useState(false);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
 
     // Fetch upload details
     useEffect(() => {
@@ -45,10 +58,6 @@ export default function DocumentViewer() {
         setLoading(true);
         uploadsApi.getUploadById(parseInt(id))
             .then(res => {
-                console.log('=== DOCUMENT VIEWER DEBUG ===');
-                console.log('Upload data received:', res.data.upload);
-                console.log('URL:', res.data.upload?.url);
-                console.log('MIME type:', res.data.upload?.mime_type);
                 setUpload(res.data.upload);
                 setLoading(false);
             })
@@ -73,6 +82,47 @@ export default function DocumentViewer() {
                 setLoadingComments(false);
             });
     }, [id]);
+
+    // Load PDF
+    useEffect(() => {
+        if (!upload?.url || !upload.mimeType?.includes('pdf')) return;
+
+        setPdfLoading(true);
+        pdfjsLib.getDocument(upload.url).promise
+            .then(loadedPdf => {
+                setPdf(loadedPdf);
+                setTotalPages(loadedPdf.numPages);
+                setPdfLoading(false);
+            })
+            .catch(err => {
+                console.error('Error loading PDF:', err);
+                setPdfLoading(false);
+            });
+    }, [upload]);
+
+    // Render current page
+    const renderPage = useCallback(async (pageNum: number) => {
+        if (!pdf || !canvasRef.current) return;
+
+        const page = await pdf.getPage(pageNum);
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+
+        const viewport = page.getViewport({ scale, rotation });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({
+            canvasContext: context,
+            viewport: viewport,
+        }).promise;
+    }, [pdf, scale, rotation]);
+
+    useEffect(() => {
+        if (pdf && currentPage) {
+            renderPage(currentPage);
+        }
+    }, [pdf, currentPage, scale, rotation, renderPage]);
 
     const handlePostComment = async () => {
         if (!newComment.trim() || !id) return;
@@ -135,151 +185,193 @@ export default function DocumentViewer() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
             {/* Header */}
-            <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-                <div className="max-w-screen-2xl mx-auto px-4 py-4">
+            <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
                             <button
                                 onClick={() => navigate(-1)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex-shrink-0"
                             >
                                 <ArrowLeft className="w-5 h-5" />
                             </button>
-                            <div>
-                                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                            <div className="min-w-0 flex-1">
+                                <h1 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">
                                     {upload.title || upload.original_filename}
                                 </h1>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    {upload.class_name}
-                                </p>
+                                {upload.class_name && (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                        {upload.class_name}
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <button
                             onClick={handleDownload}
-                            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                            className="ml-4 flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex-shrink-0 text-sm sm:text-base"
                         >
                             <Download className="w-4 h-4" />
-                            Download
+                            <span className="hidden sm:inline">Download</span>
                         </button>
                     </div>
                 </div>
             </header>
 
-            {/* Mobile Tabs */}
-            <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex">
-                    <button
-                        onClick={() => setActiveTab('document')}
-                        className={`flex-1 py-3 text-center font-medium transition-colors ${activeTab === 'document'
-                            ? 'text-primary-600 border-b-2 border-primary-600'
-                            : 'text-gray-500 dark:text-gray-400'
-                            }`}
-                    >
-                        <FileText className="w-5 h-5 inline-block mr-2" />
-                        Document
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('comments')}
-                        className={`flex-1 py-3 text-center font-medium transition-colors ${activeTab === 'comments'
-                            ? 'text-primary-600 border-b-2 border-primary-600'
-                            : 'text-gray-500 dark:text-gray-400'
-                            }`}
-                    >
-                        <MessageSquare className="w-5 h-5 inline-block mr-2" />
-                        Comments ({comments.length})
-                    </button>
-                </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="max-w-screen-2xl mx-auto">
-                <div className="lg:grid lg:grid-cols-[1fr,400px] lg:gap-6 p-4">
-                    {/* PDF Viewer Section */}
-                    <div className={`${activeTab === 'document' ? 'block' : 'hidden'} lg:block`}>
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-                            {isPDF ? (
-                                <iframe
-                                    src={upload.url}
-                                    className="w-full h-[calc(100vh-200px)] lg:h-[calc(100vh-150px)]"
-                                    title={upload.title}
-                                />
-                            ) : (
-                                <div className="p-8 text-center">
-                                    <img
-                                        src={upload.url}
-                                        alt={upload.title}
-                                        className="max-w-full mx-auto"
-                                    />
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                {/* Document Viewer */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg mb-8 overflow-hidden">
+                    {isPDF ? (
+                        <>
+                            {/* PDF Controls */}
+                            <div className="bg-gray-100 dark:bg-gray-700 px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                        disabled={currentPage <= 1}
+                                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <span className="text-sm font-medium px-3">
+                                        Page {currentPage} / {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                                        disabled={currentPage >= totalPages}
+                                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
                                 </div>
-                            )}
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setScale(Math.max(0.5, scale - 0.25))}
+                                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                        title="Zoom Out"
+                                    >
+                                        <ZoomOut className="w-5 h-5" />
+                                    </button>
+                                    <span className="text-sm font-medium px-2">{Math.round(scale * 100)}%</span>
+                                    <button
+                                        onClick={() => setScale(Math.min(3, scale + 0.25))}
+                                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                        title="Zoom In"
+                                    >
+                                        <ZoomIn className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setRotation((rotation + 90) % 360)}
+                                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                                        title="Rotate"
+                                    >
+                                        <RotateCw className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* PDF Canvas */}
+                            <div
+                                ref={containerRef}
+                                className="overflow-auto bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-8"
+                                style={{ maxHeight: '70vh' }}
+                            >
+                                {pdfLoading ? (
+                                    <div className="text-center py-16">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+                                        <p className="text-gray-600 dark:text-gray-400">Loading PDF...</p>
+                                    </div>
+                                ) : (
+                                    <canvas
+                                        ref={canvasRef}
+                                        className="shadow-2xl"
+                                    />
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="p-8 text-center bg-gray-50 dark:bg-gray-900">
+                            <img
+                                src={upload.url}
+                                alt={upload.title}
+                                className="max-w-full max-h-[70vh] mx-auto rounded-lg shadow-lg"
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* Comments Section */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                        <MessageSquare className="w-6 h-6 text-primary-600" />
+                        Discussion ({comments.length})
+                    </h2>
+
+                    {/* Comment Input */}
+                    <div className="mb-8">
+                        <textarea
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            placeholder="Share your thoughts..."
+                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
+                            rows={3}
+                        />
+                        <div className="mt-3 flex justify-end">
+                            <button
+                                onClick={handlePostComment}
+                                disabled={!newComment.trim() || postingComment}
+                                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                            >
+                                {postingComment ? 'Posting...' : 'Post Comment'}
+                            </button>
                         </div>
                     </div>
 
-                    {/* Comments Section */}
-                    <div className={`${activeTab === 'comments' ? 'block' : 'hidden'} lg:block`}>
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 sticky top-[120px] h-[calc(100vh-200px)] lg:h-[calc(100vh-150px)] flex flex-col">
-                            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                                <MessageSquare className="w-5 h-5" />
-                                Comments ({comments.length})
-                            </h2>
-
-                            {/* Comments List */}
-                            <div className="flex-1 overflow-y-auto mb-4 space-y-4">
-                                {loadingComments ? (
-                                    <div className="text-center py-8">
-                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                                    </div>
-                                ) : comments.length === 0 ? (
-                                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                                        <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                        <p>No comments yet</p>
-                                        <p className="text-sm">Be the first to comment!</p>
-                                    </div>
-                                ) : (
-                                    comments.map(comment => (
-                                        <div key={comment.id} className="border-b border-gray-200 dark:border-gray-700 pb-3">
-                                            <div className="flex items-start justify-between mb-1">
-                                                <span className="font-medium text-sm">
-                                                    {comment.user_name}
-                                                </span>
-                                                <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                    {new Date(comment.created_at).toLocaleDateString()}
-                                                </span>
-                                            </div>
-                                            <p className="text-sm text-gray-700 dark:text-gray-300">
-                                                {comment.content}
-                                            </p>
-                                            {user?.id === comment.user_id && (
-                                                <button
-                                                    onClick={() => handleDeleteComment(comment.id)}
-                                                    className="text-xs text-red-600 hover:text-red-700 mt-1"
-                                                >
-                                                    Delete
-                                                </button>
-                                            )}
+                    {/* Comments List */}
+                    <div className="space-y-4">
+                        {loadingComments ? (
+                            <div className="text-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                            </div>
+                        ) : comments.length === 0 ? (
+                            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                                <MessageSquare className="w-16 h-16 mx-auto mb-3 opacity-30" />
+                                <p className="text-lg font-medium">No comments yet</p>
+                                <p className="text-sm">Be the first to start the discussion!</p>
+                            </div>
+                        ) : (
+                            comments.map(comment => (
+                                <div key={comment.id} className="border-l-4 border-primary-600 pl-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-r-lg">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div>
+                                            <span className="font-semibold text-gray-900 dark:text-white">
+                                                {comment.user_name}
+                                            </span>
+                                            <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+                                                {new Date(comment.created_at).toLocaleDateString('en-US', {
+                                                    month: 'short',
+                                                    day: 'numeric',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </span>
                                         </div>
-                                    ))
-                                )}
-                            </div>
-
-                            {/* Comment Input */}
-                            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                                <textarea
-                                    value={newComment}
-                                    onChange={(e) => setNewComment(e.target.value)}
-                                    placeholder="Add a comment..."
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
-                                    rows={3}
-                                />
-                                <button
-                                    onClick={handlePostComment}
-                                    disabled={!newComment.trim() || postingComment}
-                                    className="mt-2 w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {postingComment ? 'Posting...' : 'Post Comment'}
-                                </button>
-                            </div>
-                        </div>
+                                        {user?.id === comment.user_id && (
+                                            <button
+                                                onClick={() => handleDeleteComment(comment.id)}
+                                                className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 font-medium"
+                                            >
+                                                Delete
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                                        {comment.content}
+                                    </p>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
             </div>
