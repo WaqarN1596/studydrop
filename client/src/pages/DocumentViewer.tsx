@@ -150,7 +150,14 @@ export default function DocumentViewer() {
 
     const handleDownload = () => {
         if (!upload) return;
-        window.open(upload.url, '_blank');
+
+        // Create temporary anchor to trigger download
+        const link = document.createElement('a');
+        link.href = upload.url;
+        link.download = upload.title || upload.original_filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     if (loading) {
