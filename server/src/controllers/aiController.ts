@@ -2,14 +2,23 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 
-// Use dynamic import for pdf-parse (CommonJS module)
-const pdfParse = require('pdf-parse');
+// Robust import for pdf-parse to handle different environments
+let pdfParse: any;
+try {
+    pdfParse = require('pdf-parse');
+    // Handle ES module default export if present
+    if (typeof pdfParse !== 'function' && typeof pdfParse.default === 'function') {
+        pdfParse = pdfParse.default;
+    }
+} catch (e) {
+    console.error('Failed to load pdf-parse:', e);
+}
 
 // Initialize Google AI with Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
-// Use stable, available models
-const PRIMARY_MODEL = 'gemini-1.5-flash-latest'; // Stable model
-const FALLBACK_MODEL = 'gemini-1.5-pro-latest'; // Fallback
+// Use standard model names that are definitely available
+const PRIMARY_MODEL = 'gemini-1.5-flash';
+const FALLBACK_MODEL = 'gemini-1.5-pro';
 
 // Helper to get model with fallback
 const getModel = (useFallback = false) => {
@@ -20,7 +29,10 @@ const getModel = (useFallback = false) => {
 // Helper to extract text from PDF buffer
 const extractPDFText = async (fileBuffer: Buffer): Promise<string> => {
     try {
-        // pdf-parse returns a promise directly
+        if (typeof pdfParse !== 'function') {
+            console.error('pdf-parse is not a function:', typeof pdfParse);
+            return '';
+        }
         const data = await pdfParse(fileBuffer);
         console.log('PDF extracted:', data.numpages, 'pages');
         return data.text.slice(0, 15000); // Limit to first 15k chars for API
