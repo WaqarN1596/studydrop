@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { userApi, classApi } from '../services/api';
+import { userApi } from '../services/api';
 import { User as UserIcon, Mail, GraduationCap, Calendar, Upload, TrendingUp, Award, Edit, Eye, Filter } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import PDFViewerModal from '../components/PDFViewerModal';

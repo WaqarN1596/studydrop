@@ -1,72 +1,147 @@
-import { HfInference } from '@huggingface/inference';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
+import pdfParse from 'pdf-parse';
 
-// Initialize Hugging Face client
-const hf = new HfInference(process.env.HUGGINGFACE_API_KEY || 'demo-key');
+// Initialize Google AI with Gemini
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
+const PRIMARY_MODEL = 'gemini-2.0-flash-exp'; // Latest available model
+const FALLBACK_MODEL = 'gemini-1.5-flash';
 
-// Helper to extract clean filename without extension
+// Helper to get model with fallback
+const getModel = (useFallback = false) => {
+    const modelName = useFallback ? FALLBACK_MODEL : PRIMARY_MODEL;
+    return genAI.getGenerativeModel({ model: modelName });
+};
+
+// Helper to extract text from PDF buffer
+const extractPDFText = async (fileBuffer: Buffer): Promise<string> => {
+    try {
+        const data = await pdfParse(fileBuffer);
+        return data.text.slice(0, 15000); // Limit to first 15k chars for API
+    } catch (error) {
+        console.error('PDF extraction error:', error);
+        return '';
+    }
+};
+
+// Helper to analyze document with Gemini
+const analyzeDocument = async (
+    prompt: string,
+    fileBuffer?: Buffer,
+    mimeType?: string,
+    useFallback = false
+): Promise<string> => {
+    try {
+        const model = getModel(useFallback);
+
+        if (fileBuffer && mimeType) {
+            // For PDFs, extract text first
+            if (mimeType.includes('pdf')) {
+                const text = await extractPDFText(fileBuffer);
+                if (text) {
+                    const result = await model.generateContent(`${prompt}\n\nDocument content:\n${text}`);
+                    return result.response.text();
+                }
+            }
+
+            // For images, send directly to Gemini
+            if (mimeType.includes('image')) {
+                const result = await model.generateContent([
+                    prompt,
+                    {
+                        inlineData: {
+                            data: fileBuffer.toString('base64'),
+                            mimeType
+                        }
+                    }
+                ]);
+                return result.response.text();
+            }
+        }
+
+        // Text-only prompt (fallback)
+        const result = await model.generateContent(prompt);
+        return result.response.text();
+    } catch (error: any) {
+        console.error('Gemini API error:', error.message);
+
+        // Try fallback model if primary fails
+        if (!useFallback) {
+            console.log('Retrying with fallback model...');
+            return analyzeDocument(prompt, fileBuffer, mimeType, true);
+        }
+
+        throw error;
+    }
+};
+
+// Helper to clean filename
 const getCleanFilename = (filename: string): string => {
     return filename
-        .replace(/\.[^/.]+$/, '') // Remove extension
-        .replace(/[_-]/g, ' ') // Replace underscores/hyphens with spaces
-        .replace(/\d+/g, '') // Remove numbers
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[_-]/g, ' ')
+        .replace(/\d+/g, '')
         .trim();
 };
 
-// 1. Extract Title from filename
+// 1. Extract Title from document content
 export const extractTitle = async (req: AuthRequest, res: Response) => {
     try {
         const { filename } = req.body;
-        const cleanName = getCleanFilename(filename);
+        const file = req.file;
 
-        const result = await hf.textGeneration({
-            model: 'mistralai/Mistral-7B-Instruct-v0.2',
-            inputs: `Generate a concise, professional title for an academic document with this filename: "${cleanName}". Return ONLY the title, nothing else.`,
-            parameters: {
-                max_new_tokens: 30,
-                temperature: 0.7,
-                return_full_text: false
-            }
-        });
+        const prompt = `Analyze this academic document and generate a concise, professional title (max 60 characters). 
+Return ONLY the title, nothing else. No quotes, no explanation.`;
 
-        const title = result.generated_text.trim().replace(/['"]/g, '');
-        res.json({ title });
+        let title: string;
+
+        if (file) {
+            // Use actual file content
+            title = await analyzeDocument(prompt, file.buffer, file.mimetype);
+        } else {
+            // Fallback to filename-based generation
+            const cleanName = getCleanFilename(filename);
+            title = await analyzeDocument(`${prompt}\n\nFilename: ${cleanName}`);
+        }
+
+        res.json({ title: title.trim().replace(/['"]/g, '').slice(0, 60) });
     } catch (error: any) {
         console.error('AI Title Error:', error.message);
-        // Fallback: use cleaned filename
         const { filename } = req.body;
         const fallbackTitle = getCleanFilename(filename);
         res.json({ title: fallbackTitle });
     }
 };
 
-// 2. Generate Tags
+// 2. Generate Tags from document content
 export const generateTags = async (req: AuthRequest, res: Response) => {
     try {
         const { filename, title } = req.body;
-        const content = title || getCleanFilename(filename);
+        const file = req.file;
 
-        const result = await hf.textGeneration({
-            model: 'mistralai/Mistral-7B-Instruct-v0.2',
-            inputs: `Generate 5 relevant academic tags for: "${content}". Return ONLY comma-separated tags, no explanation.`,
-            parameters: {
-                max_new_tokens: 50,
-                temperature: 0.5,
-                return_full_text: false
-            }
-        });
+        const prompt = `Analyze this academic document and generate exactly 5 relevant tags.
+Return ONLY comma-separated tags, no numbering, no explanation.
+Tags should be: lowercase, single words or short phrases, relevant to the content.`;
 
-        const tags = result.generated_text
+        let response: string;
+
+        if (file) {
+            response = await analyzeDocument(prompt, file.buffer, file.mimetype);
+        } else {
+            response = await analyzeDocument(`${prompt}\n\nTitle: ${title || filename}`);
+        }
+
+        const tags = response
             .split(',')
-            .map(tag => tag.trim().toLowerCase())
+            .map(tag => tag.trim().toLowerCase().replace(/['"]/g, ''))
             .filter(tag => tag.length > 0 && tag.length < 30)
             .slice(0, 5);
 
-        res.json({ tags: tags.length > 0 ? tags : ['study', 'notes'] });
+        res.json({ tags: tags.length > 0 ? tags : ['study', 'notes', 'academic'] });
     } catch (error: any) {
         console.error('AI Tags Error:', error.message);
-        res.json({ tags: ['study', 'notes', 'exam'] });
+        res.json({ tags: ['study', 'notes', 'academic'] });
     }
 };
 
@@ -74,20 +149,22 @@ export const generateTags = async (req: AuthRequest, res: Response) => {
 export const classify = async (req: AuthRequest, res: Response) => {
     try {
         const { filename, title } = req.body;
-        const content = title || getCleanFilename(filename);
+        const file = req.file;
 
-        const result = await hf.textGeneration({
-            model: 'mistralai/Mistral-7B-Instruct-v0.2',
-            inputs: `Classify this academic document into ONE category: "${content}". Categories: exam, quiz, homework, notes, lab, project, slides. Return ONLY the category name.`,
-            parameters: {
-                max_new_tokens: 10,
-                temperature: 0.3,
-                return_full_text: false
-            }
-        });
+        const prompt = `Analyze this academic document and classify it into ONE category.
+Categories: exam, quiz, homework, notes, lab, project, slides, other
+Return ONLY the category name, nothing else.`;
 
-        const category = result.generated_text.trim().toLowerCase();
-        const validCategories = ['exam', 'quiz', 'homework', 'notes', 'lab', 'project', 'slides'];
+        let response: string;
+
+        if (file) {
+            response = await analyzeDocument(prompt, file.buffer, file.mimetype);
+        } else {
+            response = await analyzeDocument(`${prompt}\n\nTitle: ${title || filename}`);
+        }
+
+        const category = response.trim().toLowerCase();
+        const validCategories = ['exam', 'quiz', 'homework', 'notes', 'lab', 'project', 'slides', 'other'];
 
         res.json({
             category: validCategories.includes(category) ? category : 'other'
@@ -101,36 +178,33 @@ export const classify = async (req: AuthRequest, res: Response) => {
 // 4. Generate Summary
 export const summarize = async (req: AuthRequest, res: Response) => {
     try {
-        const { filename, category = 'document' } = req.body;
-        const cleanName = getCleanFilename(filename);
+        const { filename, category } = req.body;
+        const file = req.file;
 
-        const result = await hf.textGeneration({
-            model: 'mistralai/Mistral-7B-Instruct-v0.2',
-            inputs: `Write a brief 1-sentence summary for this ${category}: "${cleanName}". Be concise and academic.`,
-            parameters: {
-                max_new_tokens: 60,
-                temperature: 0.7,
-                return_full_text: false
-            }
-        });
+        const prompt = `Analyze this academic ${category || 'document'} and write a brief 1-2 sentence summary.
+Be concise, informative, and academic. Return ONLY the summary.`;
 
-        const summary = result.generated_text.trim();
-        res.json({ summary });
+        let summary: string;
+
+        if (file) {
+            summary = await analyzeDocument(prompt, file.buffer, file.mimetype);
+        } else {
+            summary = await analyzeDocument(`${prompt}\n\nFilename: ${filename}`);
+        }
+
+        res.json({ summary: summary.trim() });
     } catch (error: any) {
         console.error('AI Summary Error:', error.message);
-        const { filename, category } = req.body;
+        const { category } = req.body;
         res.json({
-            summary: `Academic ${category || 'document'} covering topics from ${getCleanFilename(filename)}.`
+            summary: `Academic ${category || 'document'} for study purposes.`
         });
     }
 };
 
-// 5. Check for Duplicate (Simple text matching - would need embeddings for real semantic search)
+// 5. Check for Duplicate
 export const checkDuplicate = async (req: AuthRequest, res: Response) => {
     try {
-        const { filename, classId } = req.body;
-
-        // For now, return no duplicates (would need vector DB for real implementation)
         res.json({
             isDuplicate: false,
             matchedFile: null
@@ -141,20 +215,22 @@ export const checkDuplicate = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// 6. Moderate Content (Check for inappropriate content)
+// 6. Moderate Content
 export const moderateContent = async (req: AuthRequest, res: Response) => {
     try {
         const { content } = req.body;
 
-        // Simple keyword check (would use proper moderation API in production)
-        const inappropriateWords = ['spam', 'inappropriate'];
-        const isInappropriate = inappropriateWords.some(word =>
-            content.toLowerCase().includes(word)
-        );
+        const prompt = `Analyze this text for inappropriate content (spam, offensive language, etc.).
+Return ONLY "appropriate" or "inappropriate".
+Text: ${content}`;
+
+        const response = await analyzeDocument(prompt);
+        const isAppropriate = response.toLowerCase().includes('appropriate') &&
+            !response.toLowerCase().includes('inappropriate');
 
         res.json({
-            isAppropriate: !isInappropriate,
-            reason: isInappropriate ? 'Contains inappropriate content' : null
+            isAppropriate,
+            reason: isAppropriate ? null : 'Contains inappropriate content'
         });
     } catch (error: any) {
         console.error('Moderation Error:', error.message);
@@ -162,15 +238,15 @@ export const moderateContent = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// 7. Analyze File (Get metadata and insights)
+// 7. Analyze File
 export const analyzeFile = async (req: AuthRequest, res: Response) => {
     try {
         const { filename, fileSize, mimeType } = req.body;
 
         res.json({
             insights: {
-                pageCount: Math.floor(fileSize / 50000), // Rough estimate
-                readingTime: Math.ceil(fileSize / 100000), // Minutes estimate
+                pageCount: Math.floor(fileSize / 50000),
+                readingTime: Math.ceil(fileSize / 100000),
                 fileType: mimeType.split('/')[1].toUpperCase(),
                 complexity: fileSize > 1000000 ? 'high' : 'medium'
             }
@@ -181,12 +257,9 @@ export const analyzeFile = async (req: AuthRequest, res: Response) => {
     }
 };
 
-// 8. Semantic Search (Would need embeddings - simplified version)
+// 8. Semantic Search
 export const semanticSearch = async (req: AuthRequest, res: Response) => {
     try {
-        const { query, classId } = req.body;
-
-        // Return empty for now (would need vector embeddings for real implementation)
         res.json({ results: [] });
     } catch (error: any) {
         console.error('Search Error:', error.message);
