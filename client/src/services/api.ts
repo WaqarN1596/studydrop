@@ -149,6 +149,21 @@ export const commentsApi = {
     },
 };
 
+// Flashcards
+export const flashcardsApi = {
+    generate: (uploadId: number, count = 15) => {
+        clearCache();
+        return api.post('/ai/generate-flashcards', { uploadId, count });
+    },
+    getByUpload: (uploadId: number) => api.get(`/flashcards/upload/${uploadId}`),
+    getSet: (setId: number) => api.get(`/flashcards/set/${setId}`),
+    getByUser: (userId: number) => api.get(`/flashcards/user/${userId}`),
+    deleteSet: (setId: number) => {
+        clearCache();
+        return api.delete(`/flashcards/set/${setId}`);
+    },
+};
+
 // Notifications
 export const notificationApi = {
     getNotifications: () => api.get('/notifications'),

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, MessageSquare, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { uploadsApi, commentsApi } from '../services/api';
+import { ArrowLeft, Download, MessageSquare, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { uploadsApi, commentsApi, flashcardsApi } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -40,6 +40,7 @@ export default function DocumentViewer() {
     const [loading, setLoading] = useState(true);
     const [loadingComments, setLoadingComments] = useState(true);
     const [postingComment, setPostingComment] = useState(false);
+    const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
 
     // PDF viewer state
     const containerRef = useRef<HTMLDivElement>(null);
@@ -160,6 +161,30 @@ export default function DocumentViewer() {
         document.body.removeChild(link);
     };
 
+    const handleGenerateFlashcards = async () => {
+        if (!id || !upload?.mimeType?.includes('pdf')) {
+            alert('Flashcards can only be generated from PDF files');
+            return;
+        }
+
+        if (!confirm(`Generate AI flashcards from "${upload.title || upload.original_filename}"?`)) {
+            return;
+        }
+
+        setGeneratingFlashcards(true);
+        try {
+            const res = await flashcardsApi.generate(parseInt(id), 15);
+            alert(`Success! Generated ${res.data.cardCount} flashcards.`);
+            // Navigate to flashcard study mode
+            navigate(`/flashcards/${res.data.setId}`);
+        } catch (err: any) {
+            console.error('Failed to generate flashcards:', err);
+            alert(err.response?.data?.error || 'Failed to generate flashcards. Please try again.');
+        } finally {
+            setGeneratingFlashcards(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -213,13 +238,26 @@ export default function DocumentViewer() {
                                 )}
                             </div>
                         </div>
-                        <button
-                            onClick={handleDownload}
-                            className="ml-4 flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex-shrink-0 text-sm sm:text-base"
-                        >
-                            <Download className="w-4 h-4" />
-                            <span className="hidden sm:inline">Download</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {isPDF && (
+                                <button
+                                    onClick={handleGenerateFlashcards}
+                                    disabled={generatingFlashcards}
+                                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex-shrink-0 text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Sparkles className="w-4 h-4" />
+                                    <span className="hidden sm:inline">{generatingFlashcards ? 'Generating...' : 'Generate Flashcards'}</span>
+                                    <span className="sm:hidden">AI</span>
+                                </button>
+                            )}
+                            <button
+                                onClick={handleDownload}
+                                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex-shrink-0 text-sm sm:text-base"
+                            >
+                                <Download className="w-4 h-4" />
+                                <span className="hidden sm:inline">Download</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </header>
