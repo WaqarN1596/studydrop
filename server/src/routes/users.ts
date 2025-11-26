@@ -85,7 +85,18 @@ router.get('/:id/uploads', async (req, res: Response) => {
         const { id } = req.params;
 
         const uploads = await queryAll(
-            `SELECT u.*, c.name as class_name,
+            `SELECT 
+                    u.id,
+                    u.title,
+                    u.original_filename as "originalFilename",
+                    u.file_path as "url",
+                    u.mime_type as "mimeType",
+                    u.category,
+                    u.summary,
+                    u.created_at as "createdAt",
+                    u.class_id as "classId",
+                    u.user_id as "userId",
+                    c.name as "className",
                     ARRAY_AGG(ut.tag) FILTER (WHERE ut.tag IS NOT NULL) as tags
              FROM uploads u
              LEFT JOIN classes c ON u.class_id = c.id
