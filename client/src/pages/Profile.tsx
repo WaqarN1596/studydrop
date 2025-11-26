@@ -1,14 +1,25 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { userApi } from '../services/api';
-import { User as UserIcon, Mail, GraduationCap, Calendar, Upload, TrendingUp, Award, Edit } from 'lucide-react';
+import { userApi, classApi } from '../services/api';
+import { User as UserIcon, Mail, GraduationCap, Calendar, Upload, TrendingUp, Award, Edit, Eye, Filter } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import PDFViewerModal from '../components/PDFViewerModal';
+import ImageViewerModal from '../components/ImageViewerModal';
 
 export default function Profile() {
+    const navigate = useNavigate();
     const { user } = useAuthStore();
     const [uploads, setUploads] = useState<any[]>([]);
+    const [filteredUploads, setFilteredUploads] = useState<any[]>([]);
+    const [classes, setClasses] = useState<any[]>([]);
     const [stats, setStats] = useState({ totalUploads: 0, totalClasses: 0, recentActivity: 0 });
     const [loading, setLoading] = useState(true);
+    const [viewerFile, setViewerFile] = useState<{ url: string; filename: string; type: 'pdf' | 'image' } | null>(null);
+
+    // Filters
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [classFilter, setClassFilter] = useState('all');
 
     useEffect(() => {
         if (user) {
@@ -18,6 +29,8 @@ export default function Profile() {
             ]).then(([uploadsRes, classesRes]) => {
                 const userUploads = uploadsRes.data.uploads;
                 setUploads(userUploads);
+                setFilteredUploads(userUploads);
+                setClasses(classesRes.data.classes);
 
                 // Calculate stats
                 const recentCount = userUploads.filter((u: any) => {
@@ -36,6 +49,36 @@ export default function Profile() {
             });
         }
     }, [user]);
+
+    // Apply filters
+    useEffect(() => {
+        let filtered = uploads;
+
+        if (categoryFilter !== 'all') {
+            filtered = filtered.filter(u => u.category === categoryFilter);
+        }
+
+        if (classFilter !== 'all') {
+            filtered = filtered.filter(u => u.classId === parseInt(classFilter));
+        }
+
+        setFilteredUploads(filtered);
+    }, [categoryFilter, classFilter, uploads]);
+
+    const handleView = (upload: any) => {
+        const isPDF = upload.mimeType?.includes('pdf');
+        // Use backend API URL for proxy
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://studydrop-api.onrender.com/api';
+        const proxyUrl = `${apiBaseUrl}/proxy?url=${encodeURIComponent(upload.url)}`;
+
+        setViewerFile({
+            url: isPDF ? proxyUrl : upload.url,
+            filename: upload.title || upload.originalFilename,
+            type: isPDF ? 'pdf' : 'image',
+        });
+    };
+
+    const categories = ['all', 'exam', 'quiz', 'homework', 'notes', 'lab', 'project', 'other'];
 
     if (loading || !user) {
         return (
@@ -86,7 +129,10 @@ export default function Profile() {
                         </div>
 
                         {/* Edit Button */}
-                        <button className="btn-secondary bg-white/20 backdrop-blur-sm hover:bg-white/30 border-white/30 text-white flex items-center gap-2">
+                        <button
+                            onClick={() => navigate('/settings')}
+                            className="btn-secondary bg-white/20 backdrop-blur-sm hover:bg-white/30 border-white/30 text-white flex items-center gap-2"
+                        >
                             <Edit className="w-4 h-4" />
                             Edit Profile
                         </button>
@@ -134,32 +180,74 @@ export default function Profile() {
 
                 {/* Upload History */}
                 <div className="card">
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                         <h2 className="text-2xl font-bold flex items-center gap-2">
                             <Award className="w-7 h-7 text-primary-600" />
-                            My Contributions ({uploads.length})
+                            My Contributions ({filteredUploads.length})
                         </h2>
+
+                        {/* Filters */}
+                        <div className="flex flex-wrap gap-3">
+                            <div className="flex items-center gap-2">
+                                <Filter className="w-4 h-4 text-gray-500" />
+                                <select
+                                    value={categoryFilter}
+                                    onChange={(e) => setCategoryFilter(e.target.value)}
+                                    className="input py-1 px-3 text-sm"
+                                >
+                                    {categories.map(cat => (
+                                        <option key={cat} value={cat}>
+                                            {cat === 'all' ? 'All Categories' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <select
+                                value={classFilter}
+                                onChange={(e) => setClassFilter(e.target.value)}
+                                className="input py-1 px-3 text-sm"
+                            >
+                                <option value="all">All Classes</option>
+                                {classes.map(cls => (
+                                    <option key={cls.id} value={cls.id}>
+                                        {cls.code} - {cls.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
-                    {uploads.length === 0 ? (
+                    {filteredUploads.length === 0 ? (
                         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl">
                             <UserIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600 dark:text-gray-400">No uploads yet</p>
-                            <p className="text-sm text-gray-500 mt-2">Start contributing to help your classmates!</p>
+                            <p className="text-gray-600 dark:text-gray-400">
+                                {uploads.length === 0 ? 'No uploads yet' : 'No uploads match the selected filters'}
+                            </p>
+                            {uploads.length === 0 && (
+                                <p className="text-sm text-gray-500 mt-2">Start contributing to help your classmates!</p>
+                            )}
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {uploads.map((upload) => (
-                                <div key={upload.id} className="card-hover bg-gray-50 dark:bg-gray-800/50 p-4">
+                            {filteredUploads.map((upload) => (
+                                <div
+                                    key={upload.id}
+                                    onClick={() => handleView(upload)}
+                                    className="card-hover bg-gray-50 dark:bg-gray-800/50 p-4 cursor-pointer group"
+                                >
                                     <div className="flex items-start justify-between">
                                         <div className="flex gap-4 flex-1">
-                                            <div className="w-14 h-14 bg-gradient-to-br from-primary-100 to-purple-100 dark:from-primary-900 dark:to-purple-900 rounded-xl flex items-center justify-center flex-shrink-0">
+                                            <div className="w-14 h-14 bg-gradient-to-br from-primary-100 to-purple-100 dark:from-primary-900 dark:to-purple-900 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                                                 <Upload className="w-7 h-7 text-primary-600" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className="font-semibold mb-1 line-clamp-1">
-                                                    {upload.title || upload.originalFilename}
-                                                </h3>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h3 className="font-semibold line-clamp-1 group-hover:text-primary-600 transition-colors">
+                                                        {upload.title || upload.originalFilename}
+                                                    </h3>
+                                                    <Eye className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </div>
                                                 <p className="text-sm text-primary-600 dark:text-primary-400 font-medium mb-2">
                                                     {upload.className}
                                                 </p>
@@ -178,11 +266,11 @@ export default function Profile() {
                                             </div>
                                         </div>
                                         <div className="text-right ml-4">
-                                            <span className="text-xs text-gray-500 dark:text-gray-400 block">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">
                                                 {new Date(upload.createdAt).toLocaleDateString()}
                                             </span>
                                             {upload.category && (
-                                                <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full mt-1 inline-block">
+                                                <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full inline-block">
                                                     {upload.category}
                                                 </span>
                                             )}
@@ -194,6 +282,22 @@ export default function Profile() {
                     )}
                 </div>
             </div>
+
+            {/* Viewers */}
+            {viewerFile && viewerFile.type === 'pdf' && (
+                <PDFViewerModal
+                    url={viewerFile.url}
+                    filename={viewerFile.filename}
+                    onClose={() => setViewerFile(null)}
+                />
+            )}
+            {viewerFile && viewerFile.type === 'image' && (
+                <ImageViewerModal
+                    url={viewerFile.url}
+                    filename={viewerFile.filename}
+                    onClose={() => setViewerFile(null)}
+                />
+            )}
         </div>
     );
 }
