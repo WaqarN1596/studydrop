@@ -2,13 +2,14 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 
-// Use require for pdf-parse (CommonJS module)
+// Use dynamic import for pdf-parse (CommonJS module)
 const pdfParse = require('pdf-parse');
 
 // Initialize Google AI with Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
-const PRIMARY_MODEL = 'gemini-2.0-flash-exp'; // Latest available model
-const FALLBACK_MODEL = 'gemini-1.5-flash';
+// Use stable, available models
+const PRIMARY_MODEL = 'gemini-1.5-flash-latest'; // Stable model
+const FALLBACK_MODEL = 'gemini-1.5-pro-latest'; // Fallback
 
 // Helper to get model with fallback
 const getModel = (useFallback = false) => {
@@ -19,7 +20,9 @@ const getModel = (useFallback = false) => {
 // Helper to extract text from PDF buffer
 const extractPDFText = async (fileBuffer: Buffer): Promise<string> => {
     try {
+        // pdf-parse returns a promise directly
         const data = await pdfParse(fileBuffer);
+        console.log('PDF extracted:', data.numpages, 'pages');
         return data.text.slice(0, 15000); // Limit to first 15k chars for API
     } catch (error) {
         console.error('PDF extraction error:', error);
