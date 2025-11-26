@@ -66,17 +66,7 @@ export default function Profile() {
     }, [categoryFilter, classFilter, uploads]);
 
     const handleView = (upload: any) => {
-        // Backend returns file_path and mime_type (snake_case)
-        // file_path is already a signed URL from the backend, use it directly
-        const fileUrl = upload.file_path || upload.url;
-        const mimeType = upload.mime_type || upload.mimeType;
-        const isPDF = mimeType?.includes('pdf');
-
-        setViewerFile({
-            url: fileUrl, // Use signed URL directly, no need to proxy
-            filename: upload.title || upload.original_filename || upload.originalFilename,
-            type: isPDF ? 'pdf' : 'image',
-        });
+        navigate(`/document/${upload.id}`);
     };
 
     const categories = ['all', 'exam', 'quiz', 'homework', 'notes', 'lab', 'project', 'other'];

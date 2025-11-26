@@ -123,11 +123,29 @@ export const uploadApi = {
     getUploadComments: (id: number) => api.get(`/uploads/${id}/comments`),
 };
 
+// For DocumentViewer component
+export const uploadsApi = {
+    getUploadById: (id: number) => api.get(`/uploads/${id}`),
+};
+
 // Comments
 export const commentApi = {
     addComment: (data: any) => {
         clearCache();
         return api.post('/comments', data);
+    },
+};
+
+// For DocumentViewer component  
+export const commentsApi = {
+    getUploadComments: (uploadId: number) => api.get(`/comments/upload/${uploadId}`),
+    createComment: (uploadId: number, content: string) => {
+        clearCache();
+        return api.post('/comments', { uploadId, content });
+    },
+    deleteComment: (commentId: number) => {
+        clearCache();
+        return api.delete(`/comments/${commentId}`);
     },
 };
 

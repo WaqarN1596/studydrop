@@ -13,6 +13,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import Downloads from './pages/Downloads';
+import DocumentViewer from './pages/DocumentViewer';
 
 // Route change detector
 function RouteChangeHandler() {
@@ -103,6 +104,12 @@ function App() {
                 <Route path="/downloads" element={
                     <ProtectedRoute>
                         <Downloads />
+                    </ProtectedRoute>
+                } />
+
+                <Route path="/document/:id" element={
+                    <ProtectedRoute>
+                        <DocumentViewer />
                     </ProtectedRoute>
                 } />
 

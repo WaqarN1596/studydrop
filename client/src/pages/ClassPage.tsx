@@ -83,16 +83,7 @@ export default function ClassPage() {
     };
 
     const handleView = (upload: UploadType) => {
-        const isPDF = upload.mimeType?.includes('pdf');
-        // Use backend API URL for proxy to avoid CORS issues with PDF.js worker
-        const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://studydrop-api.onrender.com/api';
-        const proxyUrl = `${apiBaseUrl}/proxy?url=${encodeURIComponent(upload.url)}`;
-
-        setViewerFile({
-            url: isPDF ? proxyUrl : upload.url, // Images usually work fine without proxy, but PDF needs it
-            filename: upload.title || upload.originalFilename,
-            type: isPDF ? 'pdf' : 'image',
-        });
+        navigate(`/document/${upload.id}`);
     };
 
     const handleDownload = async (upload: UploadType) => {
