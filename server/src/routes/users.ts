@@ -110,11 +110,6 @@ router.get('/:id/uploads', async (req, res: Response) => {
             return upload;
         }));
 
-        // Debug: Log first upload to see what we're sending
-        if (uploadsWithSignedUrls.length > 0) {
-            console.log('Sample upload data:', JSON.stringify(uploadsWithSignedUrls[0], null, 2));
-        }
-
         res.json({ uploads: uploadsWithSignedUrls });
     } catch (error: any) {
         console.error('Get user uploads error:', error);
