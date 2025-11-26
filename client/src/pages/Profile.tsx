@@ -67,16 +67,13 @@ export default function Profile() {
 
     const handleView = (upload: any) => {
         // Backend returns file_path and mime_type (snake_case)
+        // file_path is already a signed URL from the backend, use it directly
         const fileUrl = upload.file_path || upload.url;
         const mimeType = upload.mime_type || upload.mimeType;
         const isPDF = mimeType?.includes('pdf');
 
-        // Use backend API URL for proxy
-        const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://studydrop-api.onrender.com/api';
-        const proxyUrl = `${apiBaseUrl}/proxy?url=${encodeURIComponent(fileUrl)}`;
-
         setViewerFile({
-            url: isPDF ? proxyUrl : fileUrl,
+            url: fileUrl, // Use signed URL directly, no need to proxy
             filename: upload.title || upload.original_filename || upload.originalFilename,
             type: isPDF ? 'pdf' : 'image',
         });
