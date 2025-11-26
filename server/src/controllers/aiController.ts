@@ -91,8 +91,20 @@ export const extractTitle = async (req: AuthRequest, res: Response) => {
         const { filename } = req.body;
         const file = req.file;
 
-        const prompt = `Analyze this academic document and generate a concise, professional title (max 60 characters). 
-Return ONLY the title, nothing else. No quotes, no explanation.`;
+        const prompt = `Analyze this academic document and generate a concise title.
+Rules:
+- Do NOT include the class/course name in the title
+- Focus on the document type and number/topic (e.g., "Exam 1", "Final Exam", "Homework 3", "Chapter 5 Notes")
+- Keep it short and descriptive (max 40 characters)
+- Return ONLY the title, no quotes, no explanation
+
+Examples:
+- "Midterm Exam"
+- "Homework 2"
+- "Final Exam"
+- "Quiz 3"
+- "Lab Report 1"
+- "Chapter 4 Notes"`;
 
         let title: string;
 
@@ -105,7 +117,7 @@ Return ONLY the title, nothing else. No quotes, no explanation.`;
             title = await analyzeDocument(`${prompt}\n\nFilename: ${cleanName}`);
         }
 
-        res.json({ title: title.trim().replace(/['"]/g, '').slice(0, 60) });
+        res.json({ title: title.trim().replace(/['"]/g, '').slice(0, 40) });
     } catch (error: any) {
         console.error('AI Title Error:', error.message);
         const { filename } = req.body;
@@ -152,8 +164,18 @@ export const classify = async (req: AuthRequest, res: Response) => {
         const file = req.file;
 
         const prompt = `Analyze this academic document and classify it into ONE category.
-Categories: exam, quiz, homework, notes, lab, project, slides, other
-Return ONLY the category name, nothing else.`;
+
+Available categories:
+- exam (midterm, final, test)
+- quiz (short test, pop quiz)
+- homework (assignments, problem sets)
+- notes (lecture notes, study notes)
+- lab (lab reports, experiments)
+- project (term projects, presentations)
+- slides (PowerPoint, lecture slides)
+- other (anything else)
+
+Return ONLY the category name (lowercase), nothing else.`;
 
         let response: string;
 
