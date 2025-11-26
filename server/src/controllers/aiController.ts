@@ -1,7 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import pdfParse from 'pdf-parse';
+
+// Use require for pdf-parse (CommonJS module)
+const pdfParse = require('pdf-parse');
 
 // Initialize Google AI with Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
