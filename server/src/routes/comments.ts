@@ -4,6 +4,27 @@ import { authenticateToken, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
+// Get comments for an upload
+router.get('/upload/:uploadId', async (req: Request, res: Response) => {
+    try {
+        const { uploadId } = req.params;
+
+        const comments = await queryAll(
+            `SELECT c.*, u.name as user_name
+             FROM comments c
+             LEFT JOIN users u ON c.user_id = u.id
+             WHERE c.upload_id = $1
+             ORDER BY c.created_at ASC`,
+            [uploadId]
+        );
+
+        res.json({ comments });
+    } catch (error: any) {
+        console.error('Get comments error:', error);
+        res.status(500).json({ error: 'Failed to fetch comments' });
+    }
+});
+
 // Add comment to upload
 router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     try {
