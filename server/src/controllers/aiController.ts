@@ -295,3 +295,138 @@ export const semanticSearch = async (req: AuthRequest, res: Response) => {
         res.json({ results: [] });
     }
 };
+
+// 9. Generate Flashcards from PDF
+export const generateFlashcards = async (req: AuthRequest, res: Response) => {
+    try {
+        const { uploadId, count = 15 } = req.body;
+        const userId = req.user?.id;
+
+        if (!uploadId) {
+            return res.status(400).json({ error: 'Upload ID is required' });
+        }
+
+        // Import dependencies
+        const pdfParse = require('pdf-parse');
+        const { queryOne, query } = await import('../db/postgres');
+        const { getSignedUrl } = await import('../middleware/supabase');
+        const axios = (await import('axios')).default;
+
+        // Fetch upload details
+        const upload = await queryOne(
+            'SELECT id, user_id, title, original_filename, file_path, mime_type FROM uploads WHERE id = $1',
+            [uploadId]
+        );
+
+        if (!upload) {
+            return res.status(404).json({ error: 'Upload not found' });
+        }
+
+        if (!upload.mime_type?.includes('pdf')) {
+            return res.status(400).json({ error: 'Only PDF files are supported for flashcard generation' });
+        }
+
+        // Get signed URL for the PDF
+        const signedUrl = await getSignedUrl(upload.file_path);
+
+        // Download PDF file
+        console.log('Downloading PDF from:', signedUrl);
+        const response = await axios.get(signedUrl, {
+            responseType: 'arraybuffer'
+        });
+
+        const pdfBuffer = Buffer.from(response.data);
+
+        // Extract text from PDF
+        console.log('Extracting text from PDF...');
+        const pdfData = await pdfParse(pdfBuffer);
+        const extractedText = pdfData.text.trim();
+
+        if (!extractedText || extractedText.length < 100) {
+            return res.status(400).json({
+                error: 'Could not extract enough text from PDF. The document may be scanned or image-based.'
+            });
+        }
+
+        // Truncate text if too long (Gemini has token limits)
+        const maxLength = 30000; // ~7500 words
+        const textToAnalyze = extractedText.length > maxLength
+            ? extractedText.substring(0, maxLength) + '...'
+            : extractedText;
+
+        console.log('Extracted text length:', textToAnalyze.length);
+
+        // Generate flashcards using Gemini
+        const prompt = `Generate ${count} study flashcards from the following document text.
+Return a JSON array of objects with EXACTLY these fields: "question" and "answer".
+Focus on key concepts, definitions, important facts, and exam-worthy material.
+Make questions clear and concise. Make answers thorough but not overly long.
+Return ONLY valid JSON, no markdown formatting, no code blocks, no additional text.
+
+Document text:
+${textToAnalyze}
+
+Return format example:
+[{"question": "What is X?", "answer": "X is..."},{"question": "Define Y", "answer": "Y is defined as..."}]`;
+
+        console.log('Generating flashcards with Gemini...');
+        const aiResponse = await analyzeDocument(prompt);
+
+        // Clean up the response - remove markdown code blocks if present
+        let cleanedResponse = aiResponse.trim();
+        if (cleanedResponse.startsWith('```json')) {
+            cleanedResponse = cleanedResponse.replace(/^```json\n/, '').replace(/\n```$/, '');
+        } else if (cleanedResponse.startsWith('```')) {
+            cleanedResponse = cleanedResponse.replace(/^```\n/, '').replace(/\n```$/, '');
+        }
+
+        // Parse the JSON response
+        let flashcardData: Array<{ question: string; answer: string }>;
+        try {
+            flashcardData = JSON.parse(cleanedResponse);
+        } catch (parseError) {
+            console.error('Failed to parse AI response:', cleanedResponse);
+            return res.status(500).json({
+                error: 'AI generated invalid flashcard format. Please try again.'
+            });
+        }
+
+        if (!Array.isArray(flashcardData) || flashcardData.length === 0) {
+            return res.status(500).json({
+                error: 'AI did not generate any flashcards. Please try again.'
+            });
+        }
+
+        // Create flashcard set in database
+        const setResult = await query(
+            'INSERT INTO flashcard_sets (upload_id, user_id, title, card_count) VALUES ($1, $2, $3, $4) RETURNING id',
+            [uploadId, userId, upload.title || upload.original_filename, flashcardData.length]
+        );
+
+        const setId = setResult.rows[0].id;
+
+        // Insert individual flashcards
+        for (let i = 0; i < flashcardData.length; i++) {
+            const card = flashcardData[i];
+            await query(
+                'INSERT INTO flashcards (set_id, question, answer, card_order) VALUES ($1, $2, $3, $4)',
+                [setId, card.question, card.answer, i]
+            );
+        }
+
+        console.log(`Created flashcard set with ${flashcardData.length} cards`);
+
+        res.json({
+            success: true,
+            setId,
+            cardCount: flashcardData.length,
+            message: `Generated ${flashcardData.length} flashcards successfully!`
+        });
+
+    } catch (error: any) {
+        console.error('Flashcard Generation Error:', error.message);
+        res.status(500).json({
+            error: 'Failed to generate flashcards. Please try again.'
+        });
+    }
+};
