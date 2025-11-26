@@ -93,6 +93,14 @@ export const extractTitle = async (req: AuthRequest, res: Response) => {
         const { filename } = req.body;
         const file = req.file;
 
+        console.log('=== EXTRACT TITLE DEBUG ===');
+        console.log('Filename:', filename);
+        console.log('File received:', !!file);
+        console.log('File size:', file?.size);
+        console.log('File mimetype:', file?.mimetype);
+        console.log('API Key present:', !!process.env.GOOGLE_AI_API_KEY);
+        console.log('API Key length:', process.env.GOOGLE_AI_API_KEY?.length);
+
         const prompt = `Analyze this academic document and generate a concise title.
 Rules:
 - Do NOT include the class/course name in the title
@@ -110,18 +118,23 @@ Examples:
 
         let title: string;
 
-        if (file) {
+        if (file && file.buffer) {
+            console.log('Processing file content...');
             // Use actual file content
             title = await analyzeDocument(prompt, file.buffer, file.mimetype);
+            console.log('AI generated title:', title);
         } else {
+            console.log('No file received, using filename fallback');
             // Fallback to filename-based generation
             const cleanName = getCleanFilename(filename);
             title = await analyzeDocument(`${prompt}\n\nFilename: ${cleanName}`);
+            console.log('Fallback title:', title);
         }
 
         res.json({ title: title.trim().replace(/['"]/g, '').slice(0, 40) });
     } catch (error: any) {
         console.error('AI Title Error:', error.message);
+        console.error('Error stack:', error.stack);
         const { filename } = req.body;
         const fallbackTitle = getCleanFilename(filename);
         res.json({ title: fallbackTitle });
