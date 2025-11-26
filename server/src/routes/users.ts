@@ -2,6 +2,8 @@ import express, { Response } from 'express';
 import { query, queryOne, queryAll } from '../db/postgres';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 
+import { getSignedUrl } from '../middleware/supabase';
+
 const router = express.Router();
 
 // Get user profile
@@ -96,7 +98,18 @@ router.get('/:id/uploads', async (req, res: Response) => {
             [id]
         );
 
-        res.json({ uploads });
+        // Sign URLs for all uploads
+        const uploadsWithSignedUrls = await Promise.all(uploads.map(async (upload: any) => {
+            if (upload.file_path) {
+                return {
+                    ...upload,
+                    file_path: await getSignedUrl(upload.file_path)
+                };
+            }
+            return upload;
+        }));
+
+        res.json({ uploads: uploadsWithSignedUrls });
     } catch (error: any) {
         console.error('Get user uploads error:', error);
         res.status(500).json({ error: 'Failed to fetch uploads' });

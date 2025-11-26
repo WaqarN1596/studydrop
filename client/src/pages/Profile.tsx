@@ -244,12 +244,12 @@ export default function Profile() {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <h3 className="font-semibold line-clamp-1 group-hover:text-primary-600 transition-colors">
-                                                        {upload.title || upload.originalFilename}
+                                                        {upload.title || upload.original_filename || upload.originalFilename}
                                                     </h3>
                                                     <Eye className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                                                 </div>
                                                 <p className="text-sm text-primary-600 dark:text-primary-400 font-medium mb-2">
-                                                    {upload.className}
+                                                    {upload.class_name || upload.className}
                                                 </p>
                                                 {upload.tags && upload.tags.length > 0 && (
                                                     <div className="flex flex-wrap gap-2">
@@ -267,7 +267,7 @@ export default function Profile() {
                                         </div>
                                         <div className="text-right ml-4">
                                             <span className="text-xs text-gray-500 dark:text-gray-400 block mb-1">
-                                                {new Date(upload.createdAt).toLocaleDateString()}
+                                                {new Date(upload.created_at || upload.createdAt).toLocaleDateString()}
                                             </span>
                                             {upload.category && (
                                                 <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full inline-block">
