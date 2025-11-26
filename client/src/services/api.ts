@@ -140,10 +140,18 @@ export const notificationApi = {
 
 // AI
 export const aiApi = {
-    extractTitle: (data: { filename: string }) => api.post('/ai/extract-title', data),
-    generateTags: (data: { filename: string }) => api.post('/ai/generate-tags', data),
-    classify: (data: { filename: string }) => api.post('/ai/classify', data),
-    summarize: (data: { filename: string; category: string }) => api.post('/ai/summarize', data),
+    extractTitle: (formData: FormData) => api.post('/ai/extract-title', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+    generateTags: (formData: FormData) => api.post('/ai/generate-tags', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+    classify: (formData: FormData) => api.post('/ai/classify', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+    summarize: (formData: FormData) => api.post('/ai/summarize', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }),
     checkDuplicate: (data: { filename: string; classId: number }) => api.post('/ai/check-duplicate', data),
     recommend: (fileId: number) => api.post(`/ai/recommend/${fileId}`),
     search: (data: any) => api.post('/ai/search', data),

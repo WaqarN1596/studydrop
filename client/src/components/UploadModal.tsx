@@ -39,23 +39,40 @@ export default function UploadModal({ classId, onClose, onComplete }: UploadModa
         setFile(selectedFile);
         setError('');
 
-        // AI Processing
+        // AI Processing with actual file content
         setAiProcessing(true);
         try {
-            // Extract title
-            const titleRes = await aiApi.extractTitle({ filename: selectedFile.name });
+            // Create FormData with the actual file
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('filename', selectedFile.name);
+
+            // Extract title from actual file content
+            const titleRes = await aiApi.extractTitle(formData);
             setTitle(titleRes.data.title);
 
-            // Generate tags
-            const tagsRes = await aiApi.generateTags({ filename: selectedFile.name });
+            // Generate tags from actual content
+            const tagsFormData = new FormData();
+            tagsFormData.append('file', selectedFile);
+            tagsFormData.append('filename', selectedFile.name);
+            tagsFormData.append('title', titleRes.data.title);
+            const tagsRes = await aiApi.generateTags(tagsFormData);
             setTags(tagsRes.data.tags);
 
-            // Classify
-            const classifyRes = await aiApi.classify({ filename: selectedFile.name });
+            // Classify based on actual content
+            const classifyFormData = new FormData();
+            classifyFormData.append('file', selectedFile);
+            classifyFormData.append('filename', selectedFile.name);
+            classifyFormData.append('title', titleRes.data.title);
+            const classifyRes = await aiApi.classify(classifyFormData);
             setCategory(classifyRes.data.category);
 
-            // Generate summary
-            const summaryRes = await aiApi.summarize({ filename: selectedFile.name, category: classifyRes.data.category });
+            // Generate summary from actual content
+            const summaryFormData = new FormData();
+            summaryFormData.append('file', selectedFile);
+            summaryFormData.append('filename', selectedFile.name);
+            summaryFormData.append('category', classifyRes.data.category);
+            const summaryRes = await aiApi.summarize(summaryFormData);
             setSummary(summaryRes.data.summary);
 
             // Check duplicate
