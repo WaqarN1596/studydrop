@@ -186,12 +186,17 @@ export const summarize = async (req: AuthRequest, res: Response) => {
         const { filename, category } = req.body;
         const file = req.file;
 
-        const prompt = `Analyze this academic ${category || 'document'} and write a brief 1-2 sentence summary.
-Be concise, informative, and academic. Return ONLY the summary.`;
+        const prompt = `Analyze this academic ${category || 'document'} and write a very short summary.
+Rules:
+- Maximum 2 sentences
+- Maximum 30 words
+- Be extremely concise
+- Focus on the main topic only
+- Example: "Midterm exam covering derivatives, integrals, and limits with 5 problem sets."`;
 
         let summary: string;
 
-        if (file) {
+        if (file && file.buffer) {
             summary = await analyzeDocument(prompt, file.buffer, file.mimetype);
         } else {
             summary = await analyzeDocument(`${prompt}\n\nFilename: ${filename}`);
@@ -207,7 +212,26 @@ Be concise, informative, and academic. Return ONLY the summary.`;
     }
 };
 
-// 5. Check for Duplicate
+// 5. Get AI Model Info (Debug)
+export const getAIModelInfo = async (req: AuthRequest, res: Response) => {
+    try {
+        res.json({
+            model: PRIMARY_MODEL,
+            fallbackModel: FALLBACK_MODEL,
+            provider: 'Google Gemini',
+            limits: {
+                rpm: 'Unlimited (Free Tier)',
+                tpm: '1M tokens/min',
+                rpd: 'Unlimited'
+            },
+            capabilities: ['text', 'pdf', 'image']
+        });
+    } catch (error: any) {
+        res.json({ error: error.message });
+    }
+};
+
+// 6. Check for Duplicate
 export const checkDuplicate = async (req: AuthRequest, res: Response) => {
     try {
         res.json({

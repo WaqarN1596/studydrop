@@ -9,7 +9,8 @@ import {
     checkDuplicate,
     moderateContent,
     analyzeFile,
-    semanticSearch
+    semanticSearch,
+    getAIModelInfo
 } from '../controllers/aiController';
 
 const router = express.Router();
@@ -18,6 +19,7 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // AI endpoints - accept optional file uploads
+router.get('/model-info', authenticateToken, getAIModelInfo);
 router.post('/extract-title', authenticateToken, upload.single('file'), extractTitle);
 router.post('/generate-tags', authenticateToken, upload.single('file'), generateTags);
 router.post('/classify', authenticateToken, upload.single('file'), classify);

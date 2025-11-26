@@ -156,6 +156,7 @@ export const aiApi = {
     recommend: (fileId: number) => api.post(`/ai/recommend/${fileId}`),
     search: (data: any) => api.post('/ai/search', data),
     moderate: (data: any) => api.post('/ai/moderate', data),
+    getModelInfo: () => api.get('/ai/model-info'),
 };
 
 // Downloads

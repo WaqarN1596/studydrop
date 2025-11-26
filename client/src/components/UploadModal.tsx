@@ -20,7 +20,15 @@ export default function UploadModal({ classId, onClose, onComplete }: UploadModa
     const [error, setError] = useState('');
     const [aiProcessing, setAiProcessing] = useState(false);
     const [duplicateWarning, setDuplicateWarning] = useState<any>(null);
+    const [modelInfo, setModelInfo] = useState<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Fetch AI model info on mount
+    useState(() => {
+        aiApi.getModelInfo()
+            .then(res => setModelInfo(res.data))
+            .catch(err => console.error('Failed to fetch model info:', err));
+    });
 
     // Tag management functions
     const addTag = () => {
@@ -127,7 +135,15 @@ export default function UploadModal({ classId, onClose, onComplete }: UploadModa
             <div className="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold">Upload File</h2>
+                        <div>
+                            <h2 className="text-2xl font-bold">Upload File</h2>
+                            {modelInfo && (
+                                <div className="text-xs text-gray-500 mt-1 flex gap-2">
+                                    <span title="Current AI Model">🤖 {modelInfo.model}</span>
+                                    <span title="Requests Per Minute">⚡ RPM: {modelInfo.limits?.rpm}</span>
+                                </div>
+                            )}
+                        </div>
                         <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                             <X className="w-5 h-5" />
                         </button>
