@@ -9,7 +9,7 @@ interface Upload {
     title: string;
     original_filename: string;
     url: string;  // Backend returns this as "url", not "file_path"
-    mime_type: string;
+    mimeType: string;  // Backend returns camelCase, not snake_case
     category: string;
     summary: string;
     created_at: string;
@@ -130,7 +130,7 @@ export default function DocumentViewer() {
         );
     }
 
-    const isPDF = upload.mime_type?.includes('pdf');
+    const isPDF = upload.mimeType?.includes('pdf');
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
