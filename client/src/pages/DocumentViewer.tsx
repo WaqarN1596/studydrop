@@ -8,12 +8,12 @@ interface Upload {
     id: number;
     title: string;
     original_filename: string;
-    file_path: string;
+    url: string;  // Backend returns this as "url", not "file_path"
     mime_type: string;
     category: string;
     summary: string;
     created_at: string;
-    class_name: string;
+    class_name?: string;
 }
 
 interface Comment {
@@ -96,7 +96,7 @@ export default function DocumentViewer() {
 
     const handleDownload = () => {
         if (!upload) return;
-        window.open(upload.file_path, '_blank');
+        window.open(upload.url, '_blank');
     };
 
     if (loading) {
@@ -195,14 +195,14 @@ export default function DocumentViewer() {
                         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
                             {isPDF ? (
                                 <iframe
-                                    src={upload.file_path}
+                                    src={upload.url}
                                     className="w-full h-[calc(100vh-200px)] lg:h-[calc(100vh-150px)]"
                                     title={upload.title}
                                 />
                             ) : (
                                 <div className="p-8 text-center">
                                     <img
-                                        src={upload.file_path}
+                                        src={upload.url}
                                         alt={upload.title}
                                         className="max-w-full mx-auto"
                                     />
