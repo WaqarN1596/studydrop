@@ -45,6 +45,10 @@ export default function DocumentViewer() {
         setLoading(true);
         uploadsApi.getUploadById(parseInt(id))
             .then(res => {
+                console.log('=== DOCUMENT VIEWER DEBUG ===');
+                console.log('Upload data received:', res.data.upload);
+                console.log('URL:', res.data.upload?.url);
+                console.log('MIME type:', res.data.upload?.mime_type);
                 setUpload(res.data.upload);
                 setLoading(false);
             })
