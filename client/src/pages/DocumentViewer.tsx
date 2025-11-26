@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, MessageSquare, FileText } from 'lucide-react';
 import { uploadsApi, commentsApi } from '../services/api';
-import { useAuth } from '../store/authStore';
+import { useAuthStore } from '../store/authStore';
 
 interface Upload {
     id: number;
@@ -28,7 +28,7 @@ interface Comment {
 export default function DocumentViewer() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user } = useAuthStore();
 
     const [upload, setUpload] = useState<Upload | null>(null);
     const [comments, setComments] = useState<Comment[]>([]);
@@ -167,8 +167,8 @@ export default function DocumentViewer() {
                     <button
                         onClick={() => setActiveTab('document')}
                         className={`flex-1 py-3 text-center font-medium transition-colors ${activeTab === 'document'
-                                ? 'text-primary-600 border-b-2 border-primary-600'
-                                : 'text-gray-500 dark:text-gray-400'
+                            ? 'text-primary-600 border-b-2 border-primary-600'
+                            : 'text-gray-500 dark:text-gray-400'
                             }`}
                     >
                         <FileText className="w-5 h-5 inline-block mr-2" />
@@ -177,8 +177,8 @@ export default function DocumentViewer() {
                     <button
                         onClick={() => setActiveTab('comments')}
                         className={`flex-1 py-3 text-center font-medium transition-colors ${activeTab === 'comments'
-                                ? 'text-primary-600 border-b-2 border-primary-600'
-                                : 'text-gray-500 dark:text-gray-400'
+                            ? 'text-primary-600 border-b-2 border-primary-600'
+                            : 'text-gray-500 dark:text-gray-400'
                             }`}
                     >
                         <MessageSquare className="w-5 h-5 inline-block mr-2" />
