@@ -2,44 +2,17 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 
-// Robust import for pdf-parse to handle different environments
-let pdfParse: any;
-try {
-    pdfParse = require('pdf-parse');
-    // Handle ES module default export if present
-    if (typeof pdfParse !== 'function' && typeof pdfParse.default === 'function') {
-        pdfParse = pdfParse.default;
-    }
-} catch (e) {
-    console.error('Failed to load pdf-parse:', e);
-}
-
 // Initialize Google AI with Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
-// Use standard model names that are definitely available
-const PRIMARY_MODEL = 'gemini-1.5-flash';
-const FALLBACK_MODEL = 'gemini-1.5-pro';
+
+// Use the model requested by user which is available in their key
+const PRIMARY_MODEL = 'gemini-2.5-flash-lite';
+const FALLBACK_MODEL = 'gemini-1.5-flash';
 
 // Helper to get model with fallback
 const getModel = (useFallback = false) => {
     const modelName = useFallback ? FALLBACK_MODEL : PRIMARY_MODEL;
     return genAI.getGenerativeModel({ model: modelName });
-};
-
-// Helper to extract text from PDF buffer
-const extractPDFText = async (fileBuffer: Buffer): Promise<string> => {
-    try {
-        if (typeof pdfParse !== 'function') {
-            console.error('pdf-parse is not a function:', typeof pdfParse);
-            return '';
-        }
-        const data = await pdfParse(fileBuffer);
-        console.log('PDF extracted:', data.numpages, 'pages');
-        return data.text.slice(0, 15000); // Limit to first 15k chars for API
-    } catch (error) {
-        console.error('PDF extraction error:', error);
-        return '';
-    }
 };
 
 // Helper to analyze document with Gemini
@@ -53,35 +26,24 @@ const analyzeDocument = async (
         const model = getModel(useFallback);
 
         if (fileBuffer && mimeType) {
-            // For PDFs, extract text first
-            if (mimeType.includes('pdf')) {
-                const text = await extractPDFText(fileBuffer);
-                if (text) {
-                    const result = await model.generateContent(`${prompt}\n\nDocument content:\n${text}`);
-                    return result.response.text();
-                }
-            }
-
-            // For images, send directly to Gemini
-            if (mimeType.includes('image')) {
-                const result = await model.generateContent([
-                    prompt,
-                    {
-                        inlineData: {
-                            data: fileBuffer.toString('base64'),
-                            mimeType
-                        }
+            // Send file directly to Gemini (both PDF and Images are supported natively)
+            const result = await model.generateContent([
+                prompt,
+                {
+                    inlineData: {
+                        data: fileBuffer.toString('base64'),
+                        mimeType
                     }
-                ]);
-                return result.response.text();
-            }
+                }
+            ]);
+            return result.response.text();
         }
 
-        // Text-only prompt (fallback)
+        // Text-only prompt
         const result = await model.generateContent(prompt);
         return result.response.text();
     } catch (error: any) {
-        console.error('Gemini API error:', error.message);
+        console.error(`Gemini API error (${useFallback ? 'fallback' : 'primary'}):`, error.message);
 
         // Try fallback model if primary fails
         if (!useFallback) {
@@ -115,32 +77,23 @@ export const extractTitle = async (req: AuthRequest, res: Response) => {
         console.log('File mimetype:', file?.mimetype);
         console.log('API Key present:', !!process.env.GOOGLE_AI_API_KEY);
         console.log('API Key length:', process.env.GOOGLE_AI_API_KEY?.length);
+        console.log('Model:', PRIMARY_MODEL);
 
         const prompt = `Analyze this academic document and generate a concise title.
 Rules:
 - Do NOT include the class/course name in the title
 - Focus on the document type and number/topic (e.g., "Exam 1", "Final Exam", "Homework 3", "Chapter 5 Notes")
 - Keep it short and descriptive (max 40 characters)
-- Return ONLY the title, no quotes, no explanation
-
-Examples:
-- "Midterm Exam"
-- "Homework 2"
-- "Final Exam"
-- "Quiz 3"
-- "Lab Report 1"
-- "Chapter 4 Notes"`;
+- Return ONLY the title, no quotes, no explanation`;
 
         let title: string;
 
         if (file && file.buffer) {
-            console.log('Processing file content...');
-            // Use actual file content
+            console.log('Processing file content with native Gemini support...');
             title = await analyzeDocument(prompt, file.buffer, file.mimetype);
             console.log('AI generated title:', title);
         } else {
             console.log('No file received, using filename fallback');
-            // Fallback to filename-based generation
             const cleanName = getCleanFilename(filename);
             title = await analyzeDocument(`${prompt}\n\nFilename: ${cleanName}`);
             console.log('Fallback title:', title);
