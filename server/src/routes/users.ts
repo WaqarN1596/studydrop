@@ -101,13 +101,19 @@ router.get('/:id/uploads', async (req, res: Response) => {
         // Sign URLs for all uploads
         const uploadsWithSignedUrls = await Promise.all(uploads.map(async (upload: any) => {
             if (upload.file_path) {
+                const signedUrl = await getSignedUrl(upload.file_path);
                 return {
                     ...upload,
-                    file_path: await getSignedUrl(upload.file_path)
+                    file_path: signedUrl
                 };
             }
             return upload;
         }));
+
+        // Debug: Log first upload to see what we're sending
+        if (uploadsWithSignedUrls.length > 0) {
+            console.log('Sample upload data:', JSON.stringify(uploadsWithSignedUrls[0], null, 2));
+        }
 
         res.json({ uploads: uploadsWithSignedUrls });
     } catch (error: any) {
