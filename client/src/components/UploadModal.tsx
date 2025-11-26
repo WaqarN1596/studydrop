@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { uploadApi, aiApi } from '../services/api';
 import { X, Upload, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -24,11 +24,11 @@ export default function UploadModal({ classId, onClose, onComplete }: UploadModa
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch AI model info on mount
-    useState(() => {
+    useEffect(() => {
         aiApi.getModelInfo()
             .then(res => setModelInfo(res.data))
             .catch(err => console.error('Failed to fetch model info:', err));
-    });
+    }, []);
 
     // Tag management functions
     const addTag = () => {
