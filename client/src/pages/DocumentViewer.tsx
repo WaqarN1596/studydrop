@@ -354,17 +354,7 @@ export default function DocumentViewer() {
                             />
                         )}
                     </div>
-                                        )}
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {comment.content}
-                </p>
-            </div>
-            ))
-                        )}
         </div>
-                </div >
-            </div >
-        </div >
+                </div>
     );
 }
