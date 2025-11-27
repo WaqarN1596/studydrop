@@ -405,5 +405,6 @@ export default function DocumentViewer() {
                     )}
                 </div>
             </div>
-            );
+        </div>
+    );
 }
