@@ -14,7 +14,6 @@ import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import Downloads from './pages/Downloads';
 import DocumentViewer from './pages/DocumentViewer';
-import FlashcardStudy from './pages/FlashcardStudy';
 
 // Route change detector
 function RouteChangeHandler() {
@@ -111,12 +110,6 @@ function App() {
                 <Route path="/document/:id" element={
                     <ProtectedRoute>
                         <DocumentViewer />
-                    </ProtectedRoute>
-                } />
-
-                <Route path="/flashcards/:setId" element={
-                    <ProtectedRoute>
-                        <FlashcardStudy />
                     </ProtectedRoute>
                 } />
 

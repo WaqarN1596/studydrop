@@ -21,7 +21,7 @@ import adminRoutes from './routes/admin';
 import aiRoutes from './routes/ai';
 import downloadsRoutes from './routes/downloads';
 import proxyRoutes from './routes/proxy';
-import flashcardsRoutes from './routes/flashcards';
+
 
 // Import PostgreSQL database connection
 import pool from './db/postgres';
@@ -66,7 +66,6 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/downloads', downloadsRoutes);
 app.use('/api/proxy', proxyRoutes);
-app.use('/api/flashcards', flashcardsRoutes);
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
