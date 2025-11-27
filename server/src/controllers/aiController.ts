@@ -308,15 +308,7 @@ export const generateFlashcards = async (req: AuthRequest, res: Response) => {
         }
 
         // Import dependencies
-        let pdfParse;
-        try {
-            // Handle different import styles for pdf-parse
-            const pdfParseModule = require('pdf-parse');
-            pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule.default;
-        } catch (e) {
-            console.error('Failed to require pdf-parse:', e);
-            return res.status(500).json({ error: 'Server configuration error: pdf-parse missing' });
-        }
+        const pdfParse = require('pdf-parse');
         const { queryOne, query } = await import('../db/postgres');
         const { getSignedUrl } = await import('../middleware/supabase');
         const axios = (await import('axios')).default;
@@ -433,9 +425,10 @@ Return format example:
         });
 
     } catch (error: any) {
-        console.error('Flashcard Generation Error:', error.message);
+        console.error('Flashcard Generation Error:', error);
+        console.error('Stack:', error.stack);
         res.status(500).json({
-            error: 'Failed to generate flashcards. Please try again.'
+            error: `Failed to generate flashcards: ${error.message}`
         });
     }
 };
