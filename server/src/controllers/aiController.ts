@@ -328,7 +328,7 @@ export const chatWithDocument = async (req: AuthRequest, res: Response) => {
         }
 
         // Import dependencies
-        const { queryOne } = await import('../db/postgres');
+        const { queryOne, query } = await import('../db/postgres');
         const { getSignedUrl } = await import('../middleware/supabase');
         const axios = (await import('axios')).default;
 
@@ -340,6 +340,14 @@ export const chatWithDocument = async (req: AuthRequest, res: Response) => {
 
         if (!upload) {
             return res.status(404).json({ error: 'Upload not found' });
+        }
+
+        // Save User Message to DB
+        if (userId) {
+            await query(
+                'INSERT INTO chat_messages (upload_id, user_id, role, content) VALUES ($1, $2, $3, $4)',
+                [uploadId, userId, 'user', message]
+            );
         }
 
         // Get signed URL
@@ -355,6 +363,10 @@ export const chatWithDocument = async (req: AuthRequest, res: Response) => {
         const model = getModel();
 
         // Prepare history for Gemini
+        // We can use the messages passed from client, or fetch from DB.
+        // For now, using client messages is faster for the current turn, 
+        // but we should ensure they align with DB. 
+        // Let's stick to client messages for context window, but save to DB for persistence.
         const chatHistory = messages.map((msg: any) => ({
             role: msg.role === 'ai' ? 'model' : 'user',
             parts: [{ text: msg.content }]
@@ -381,6 +393,14 @@ export const chatWithDocument = async (req: AuthRequest, res: Response) => {
         const result = await model.generateContent(promptParts);
         const responseText = result.response.text();
 
+        // Save AI Response to DB
+        if (userId) {
+            await query(
+                'INSERT INTO chat_messages (upload_id, user_id, role, content) VALUES ($1, $2, $3, $4)',
+                [uploadId, userId, 'model', responseText]
+            );
+        }
+
         res.json({
             response: responseText
         });
@@ -390,6 +410,39 @@ export const chatWithDocument = async (req: AuthRequest, res: Response) => {
         res.status(500).json({
             error: `Failed to chat with document: ${error.message}`
         });
+    }
+};
+
+// 10. Get Chat History
+export const getChatHistory = async (req: AuthRequest, res: Response) => {
+    try {
+        const { uploadId } = req.params;
+        const userId = req.user?.id;
+
+        if (!uploadId) {
+            return res.status(400).json({ error: 'Upload ID is required' });
+        }
+
+        const { queryAll } = await import('../db/postgres');
+
+        const messages = await queryAll(
+            'SELECT role, content, created_at FROM chat_messages WHERE upload_id = $1 AND user_id = $2 ORDER BY created_at ASC',
+            [uploadId, userId]
+        );
+
+        // Map 'model' role back to 'ai' for frontend consistency if needed, 
+        // or frontend can handle 'model'. 
+        // Frontend currently uses 'ai' and 'user'.
+        const formattedMessages = messages.map(msg => ({
+            role: msg.role === 'model' ? 'ai' : 'user',
+            content: msg.content,
+            createdAt: msg.created_at
+        }));
+
+        res.json({ messages: formattedMessages });
+    } catch (error: any) {
+        console.error('Get Chat History Error:', error);
+        res.status(500).json({ error: 'Failed to fetch chat history' });
     }
 };
 

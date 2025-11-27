@@ -189,6 +189,7 @@ export const aiApi = {
     recommend: (fileId: number) => api.post(`/ai/recommend/${fileId}`),
     search: (query: string) => api.post('/ai/search', { query }),
     chat: (uploadId: number, message: string, messages: any[]) => api.post('/ai/chat', { uploadId, message, messages }),
+    getHistory: (uploadId: number) => api.get(`/ai/chat/${uploadId}`),
     moderate: (data: any) => api.post('/ai/moderate', data),
     getModelInfo: () => api.get('/ai/model-info'),
 };
