@@ -10,7 +10,8 @@ import {
     moderateContent,
     analyzeFile,
     semanticSearch,
-    getAIModelInfo
+    getAIModelInfo,
+    chatWithDocument
 } from '../controllers/aiController';
 
 const router = express.Router();
@@ -28,5 +29,6 @@ router.post('/check-duplicate', authenticateToken, checkDuplicate);
 router.post('/moderate', authenticateToken, moderateContent);
 router.post('/analyze', authenticateToken, analyzeFile);
 router.post('/search', authenticateToken, semanticSearch);
+router.post('/chat', authenticateToken, chatWithDocument);
 
 export default router;
