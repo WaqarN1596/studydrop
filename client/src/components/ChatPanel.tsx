@@ -97,17 +97,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ uploadId, onClose }) => {
                             {msg.role === 'ai' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
                         </div>
                         <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${msg.role === 'user'
-                                ? 'bg-purple-600 text-white rounded-tr-none'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
+                            ? 'bg-purple-600 text-white rounded-tr-none'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
                             }`}>
                             {msg.role === 'ai' ? (
-                                <ReactMarkdown
-                                    remarkPlugins={[remarkMath]}
-                                    rehypePlugins={[rehypeKatex]}
-                                    className="prose dark:prose-invert max-w-none text-sm"
-                                >
-                                    {msg.content}
-                                </ReactMarkdown>
+                                <div className="prose dark:prose-invert max-w-none text-sm">
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkMath]}
+                                        rehypePlugins={[rehypeKatex]}
+                                    >
+                                        {msg.content}
+                                    </ReactMarkdown>
+                                </div>
                             ) : (
                                 <p className="whitespace-pre-wrap">{msg.content}</p>
                             )}

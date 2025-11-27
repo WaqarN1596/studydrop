@@ -345,7 +345,7 @@ export default function DocumentViewer() {
 
                     {/* Chat Panel - Slide in from right */}
                     <div className={`fixed inset-y-0 right-0 w-full sm:w-[400px] transform transition-transform duration-300 ease-in-out z-30 ${isChatOpen ? 'translate-x-0' : 'translate-x-full'
-                        } sm:relative sm:transform-none sm:w-[400px] sm:border-l border-gray-200 dark:border-gray-700 ${isChatOpen ? 'sm:block' : 'sm:hidden'
+                        } sm:relative sm:transform-none sm:inset-auto sm:w-[400px] sm:border-l border-gray-200 dark:border-gray-700 ${isChatOpen ? 'sm:block' : 'sm:hidden'
                         }`}>
                         {isChatOpen && upload && (
                             <ChatPanel
@@ -354,7 +354,7 @@ export default function DocumentViewer() {
                             />
                         )}
                     </div>
-        </div>
                 </div>
-    );
+            </div>
+            );
 }
