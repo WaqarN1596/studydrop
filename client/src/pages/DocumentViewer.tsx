@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, MessageSquare, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, Sparkles, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, Download, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, Sparkles, Loader2, Send } from 'lucide-react';
 import { uploadsApi, commentsApi } from '../services/api';
 import ChatPanel from '../components/ChatPanel';
 import { useAuthStore } from '../store/authStore';
