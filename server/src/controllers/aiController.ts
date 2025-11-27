@@ -7,8 +7,8 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY || '');
 
 // Use the model requested by user which is available in their key
 // Use the model requested by user which is available in their key
-const PRIMARY_MODEL = 'gemini-1.5-flash';
-const FALLBACK_MODEL = 'gemini-1.5-pro';
+const PRIMARY_MODEL = 'gemini-2.5-flash-lite';
+const FALLBACK_MODEL = 'gemini-2.0-flash-lite';
 
 // Helper to get model with fallback
 const getModel = (useFallback = false) => {
