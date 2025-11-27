@@ -307,7 +307,15 @@ export const generateFlashcards = async (req: AuthRequest, res: Response) => {
         }
 
         // Import dependencies
-        const pdfParse = require('pdf-parse');
+        let pdfParse;
+        try {
+            // Handle different import styles for pdf-parse
+            const pdfParseModule = require('pdf-parse');
+            pdfParse = typeof pdfParseModule === 'function' ? pdfParseModule : pdfParseModule.default;
+        } catch (e) {
+            console.error('Failed to require pdf-parse:', e);
+            return res.status(500).json({ error: 'Server configuration error: pdf-parse missing' });
+        }
         const { queryOne, query } = await import('../db/postgres');
         const { getSignedUrl } = await import('../middleware/supabase');
         const axios = (await import('axios')).default;
