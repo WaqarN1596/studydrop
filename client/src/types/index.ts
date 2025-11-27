@@ -45,12 +45,12 @@ export interface Upload {
 
 export interface Comment {
     id: number;
-    uploadId: number;
-    userId: number;
+    upload_id: number;
+    user_id: number;
     content: string;
-    createdAt: string;
-    userName?: string;
-    profilePicture?: string;
+    created_at: string;
+    user_name?: string;
+    user_email?: string;
 }
 
 export interface Notification {
