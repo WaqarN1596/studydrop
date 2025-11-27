@@ -317,4 +317,80 @@ export const semanticSearch = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// 9. Chat with Document
+export const chatWithDocument = async (req: AuthRequest, res: Response) => {
+    try {
+        const { uploadId, message, messages = [] } = req.body;
+        const userId = req.user?.id;
+
+        if (!uploadId || !message) {
+            return res.status(400).json({ error: 'Upload ID and message are required' });
+        }
+
+        // Import dependencies
+        const { queryOne } = await import('../db/postgres');
+        const { getSignedUrl } = await import('../middleware/supabase');
+        const axios = (await import('axios')).default;
+
+        // Fetch upload details
+        const upload = await queryOne(
+            'SELECT id, title, original_filename, file_path, mime_type FROM uploads WHERE id = $1',
+            [uploadId]
+        );
+
+        if (!upload) {
+            return res.status(404).json({ error: 'Upload not found' });
+        }
+
+        // Get signed URL
+        const signedUrl = await getSignedUrl(upload.file_path);
+
+        // Download file
+        const response = await axios.get(signedUrl, {
+            responseType: 'arraybuffer'
+        });
+        const fileBuffer = Buffer.from(response.data);
+
+        // Initialize model
+        const model = getModel();
+
+        // Prepare history for Gemini
+        const chatHistory = messages.map((msg: any) => ({
+            role: msg.role === 'ai' ? 'model' : 'user',
+            parts: [{ text: msg.content }]
+        }));
+
+        // Construct the current prompt with the file
+        const promptParts: any[] = [
+            { text: `You are a helpful AI study assistant. You are analyzing the document "${upload.title || upload.original_filename}". Answer the user's question based on the document content.` },
+            {
+                inlineData: {
+                    data: fileBuffer.toString('base64'),
+                    mimeType: upload.mime_type
+                }
+            }
+        ];
+
+        // Add history context if exists
+        if (chatHistory.length > 0) {
+            promptParts.push({ text: "\n\nChat History:\n" + chatHistory.map((m: any) => `${m.role}: ${m.parts[0].text}`).join("\n") });
+        }
+
+        promptParts.push({ text: `\n\nUser Question: ${message}` });
+
+        const result = await model.generateContent(promptParts);
+        const responseText = result.response.text();
+
+        res.json({
+            response: responseText
+        });
+
+    } catch (error: any) {
+        console.error('Chat Error:', error);
+        res.status(500).json({
+            error: `Failed to chat with document: ${error.message}`
+        });
+    }
+};
+
 
