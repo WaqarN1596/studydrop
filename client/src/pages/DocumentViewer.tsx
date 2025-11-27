@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, MessageSquare, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Download, MessageSquare, ZoomIn, ZoomOut, RotateCw, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { uploadsApi, commentsApi } from '../services/api';
+import ChatPanel from '../components/ChatPanel';
 import { useAuthStore } from '../store/authStore';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -40,6 +41,7 @@ export default function DocumentViewer() {
     const [loading, setLoading] = useState(true);
     const [loadingComments, setLoadingComments] = useState(true);
     const [postingComment, setPostingComment] = useState(false);
+    const [isChatOpen, setIsChatOpen] = useState(false);
 
     // PDF viewer state
     const containerRef = useRef<HTMLDivElement>(null);
@@ -214,8 +216,18 @@ export default function DocumentViewer() {
                             </div>
                         </div>
                         <button
+                            onClick={() => setIsChatOpen(!isChatOpen)}
+                            className={`ml-4 flex items-center gap-2 px-4 py-2 rounded-lg transition-colors flex-shrink-0 text-sm sm:text-base ${isChatOpen
+                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                                : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                                }`}
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            <span className="hidden sm:inline">Chat with AI</span>
+                        </button>
+                        <button
                             onClick={handleDownload}
-                            className="ml-4 flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex-shrink-0 text-sm sm:text-base"
+                            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex-shrink-0 text-sm sm:text-base"
                         >
                             <Download className="w-4 h-4" />
                             <span className="hidden sm:inline">Download</span>
@@ -307,7 +319,42 @@ export default function DocumentViewer() {
                     )}
                 </div>
 
-                {/* Comments Section */}
+                {/* Main Content */}
+                <div className="flex-1 flex overflow-hidden relative">
+                    {/* Document Viewer Area */}
+                    <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isChatOpen ? 'mr-0' : ''}`}>
+                        <div className="flex-1 overflow-y-auto bg-gray-100 dark:bg-gray-900 p-4 sm:p-6 flex justify-center">
+                            <div className={`w-full bg-white dark:bg-gray-800 shadow-lg rounded-xl overflow-hidden transition-all duration-300 ${isChatOpen ? 'max-w-3xl' : 'max-w-5xl'
+                                }`}>
+                                {isPDF ? (
+                                    <div className="w-full overflow-auto flex justify-center bg-gray-50 dark:bg-gray-900/50 p-4" style={{ minHeight: '800px' }}>
+                                        <canvas ref={canvasRef} className="shadow-lg max-w-full" />
+                                    </div>
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900/50 p-4">
+                                        <img
+                                            src={upload?.url}
+                                            alt={upload?.title}
+                                            className="max-w-full max-h-[80vh] object-contain shadow-lg rounded-lg"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Chat Panel - Slide in from right */}
+                    <div className={`fixed inset-y-0 right-0 w-full sm:w-[400px] transform transition-transform duration-300 ease-in-out z-30 ${isChatOpen ? 'translate-x-0' : 'translate-x-full'
+                        } sm:relative sm:transform-none sm:w-[400px] sm:border-l border-gray-200 dark:border-gray-700 ${isChatOpen ? 'sm:block' : 'sm:hidden'
+                        }`}>
+                        {isChatOpen && upload && (
+                            <ChatPanel
+                                uploadId={parseInt(id!)}
+                                onClose={() => setIsChatOpen(false)}
+                            />
+                        )}
+                    </div>
+                </div>     {/* Comments Section */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
                     <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
                         <MessageSquare className="w-6 h-6 text-primary-600" />
