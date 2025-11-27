@@ -187,7 +187,8 @@ export const aiApi = {
     }),
     checkDuplicate: (data: { filename: string; classId: number }) => api.post('/ai/check-duplicate', data),
     recommend: (fileId: number) => api.post(`/ai/recommend/${fileId}`),
-    search: (data: any) => api.post('/ai/search', data),
+    search: (query: string) => api.post('/ai/search', { query }),
+    chat: (uploadId: number, message: string, messages: any[]) => api.post('/ai/chat', { uploadId, message, messages }),
     moderate: (data: any) => api.post('/ai/moderate', data),
     getModelInfo: () => api.get('/ai/model-info'),
 };
