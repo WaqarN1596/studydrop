@@ -354,81 +354,17 @@ export default function DocumentViewer() {
                             />
                         )}
                     </div>
-                </div>     {/* Comments Section */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                        <MessageSquare className="w-6 h-6 text-primary-600" />
-                        Discussion ({comments.length})
-                    </h2>
-
-                    {/* Comment Input */}
-                    <div className="mb-8">
-                        <textarea
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            placeholder="Share your thoughts..."
-                            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
-                            rows={3}
-                        />
-                        <div className="mt-3 flex justify-end">
-                            <button
-                                onClick={handlePostComment}
-                                disabled={!newComment.trim() || postingComment}
-                                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                            >
-                                {postingComment ? 'Posting...' : 'Post Comment'}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Comments List */}
-                    <div className="space-y-4">
-                        {loadingComments ? (
-                            <div className="text-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                            </div>
-                        ) : comments.length === 0 ? (
-                            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                                <MessageSquare className="w-16 h-16 mx-auto mb-3 opacity-30" />
-                                <p className="text-lg font-medium">No comments yet</p>
-                                <p className="text-sm">Be the first to start the discussion!</p>
-                            </div>
-                        ) : (
-                            comments.map(comment => (
-                                <div key={comment.id} className="border-l-4 border-primary-600 pl-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-r-lg">
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div>
-                                            <span className="font-semibold text-gray-900 dark:text-white">
-                                                {comment.user_name}
-                                            </span>
-                                            <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-                                                {new Date(comment.created_at).toLocaleDateString('en-US', {
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                    year: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </span>
-                                        </div>
-                                        {user?.id === comment.user_id && (
-                                            <button
-                                                onClick={() => handleDeleteComment(comment.id)}
-                                                className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 font-medium"
-                                            >
-                                                Delete
-                                            </button>
                                         )}
-                                    </div>
-                                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                                        {comment.content}
-                                    </p>
-                                </div>
-                            ))
-                        )}
-                    </div>
                 </div>
+                <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                    {comment.content}
+                </p>
             </div>
+            ))
+                        )}
         </div>
+                </div >
+            </div >
+        </div >
     );
 }
