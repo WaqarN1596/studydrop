@@ -36,24 +36,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ uploadId, onClose }) => {
     };
 
     useEffect(() => {
-        const fetchHistory = async () => {
-            try {
-                const res = await aiApi.getHistory(uploadId);
-                if (res.data.messages && res.data.messages.length > 0) {
-                    setMessages([
-                        { role: 'ai', content: "Hi! I'm your AI study assistant. Ask me anything about this document!" },
-                        ...res.data.messages
-                    ]);
-                }
-            } catch (error) {
-                console.error('Failed to fetch chat history:', error);
-            }
-        };
-
-        fetchHistory();
-    }, [uploadId]);
-
-    useEffect(() => {
         scrollToBottom();
     }, [messages]);
 

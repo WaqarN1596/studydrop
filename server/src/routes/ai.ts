@@ -11,8 +11,7 @@ import {
     analyzeFile,
     semanticSearch,
     getAIModelInfo,
-    chatWithDocument,
-    getChatHistory
+    chatWithDocument
 } from '../controllers/aiController';
 
 const router = express.Router();
@@ -31,6 +30,5 @@ router.post('/moderate', authenticateToken, moderateContent);
 router.post('/analyze', authenticateToken, analyzeFile);
 router.post('/search', authenticateToken, semanticSearch);
 router.post('/chat', authenticateToken, chatWithDocument);
-router.get('/chat/:uploadId', authenticateToken, getChatHistory);
 
 export default router;
