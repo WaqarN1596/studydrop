@@ -147,19 +147,21 @@ export const classify = async (req: AuthRequest, res: Response) => {
         const { filename, title } = req.body;
         const file = req.file;
 
-        const prompt = `Analyze this academic document and classify it into ONE category.
+        const prompt = `Analyze this academic document and classify it into exactly ONE of these categories:
+- exam (for midterms, finals, tests, practice exams)
+- quiz (for short tests, pop quizzes)
+- homework (for assignments, problem sets, exercises, worksheets)
+- notes (for lecture notes, study guides, handwritten notes)
+- lab (for lab reports, experiments, lab manuals)
+- project (for term projects, presentations, papers)
+- slides (for lecture slides, powerpoint presentations)
+- syllabus (for course syllabus, schedule, policies)
+- other (for anything else)
 
-Available categories:
-- exam (midterm, final, test)
-- quiz (short test, pop quiz)
-- homework (assignments, problem sets)
-- notes (lecture notes, study notes)
-- lab (lab reports, experiments)
-- project (term projects, presentations)
-- slides (PowerPoint, lecture slides)
-- other (anything else)
-
-Return ONLY the category name (lowercase), nothing else.`;
+Rules:
+1. If it looks like an assignment or questions to solve, choose "homework".
+2. If it looks like a test or exam, choose "exam".
+3. Return ONLY the category word (e.g., "homework"). Do not add punctuation or extra words.`;
 
         let response: string;
 
@@ -169,15 +171,33 @@ Return ONLY the category name (lowercase), nothing else.`;
             response = await analyzeDocument(`${prompt}\n\nTitle: ${title || filename}`);
         }
 
-        const category = response.trim().toLowerCase();
-        const validCategories = ['exam', 'quiz', 'homework', 'notes', 'lab', 'project', 'slides', 'other'];
+        let category = response.trim().toLowerCase().replace(/['".]/g, '');
+
+        // Handle common variations
+        if (category.includes('assignment') || category.includes('problem') || category.includes('work')) category = 'homework';
+        if (category.includes('test') || category.includes('midterm') || category.includes('final')) category = 'exam';
+        if (category.includes('presentation') || category.includes('powerpoint')) category = 'slides';
+        if (category.includes('syllabus')) category = 'syllabus';
+
+        const validCategories = ['exam', 'quiz', 'homework', 'notes', 'lab', 'project', 'slides', 'syllabus', 'other'];
+
+        console.log(`AI Classification: Raw="${response}" -> Parsed="${category}"`);
 
         res.json({
             category: validCategories.includes(category) ? category : 'other'
         });
     } catch (error: any) {
         console.error('AI Classify Error:', error.message);
-        res.json({ category: 'notes' });
+        // Fallback based on filename if AI fails
+        const name = (req.body.filename || '').toLowerCase();
+        let fallback = 'notes';
+        if (name.includes('hw') || name.includes('assign')) fallback = 'homework';
+        if (name.includes('exam') || name.includes('test')) fallback = 'exam';
+        if (name.includes('quiz')) fallback = 'quiz';
+        if (name.includes('lab')) fallback = 'lab';
+        if (name.includes('syllabus')) fallback = 'syllabus';
+
+        res.json({ category: fallback });
     }
 };
 
