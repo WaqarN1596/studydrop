@@ -10,8 +10,7 @@ import {
     moderateContent,
     analyzeFile,
     semanticSearch,
-    getAIModelInfo,
-    generateFlashcards
+    getAIModelInfo
 } from '../controllers/aiController';
 
 const router = express.Router();
