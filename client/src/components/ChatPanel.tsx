@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Sparkles, X, Loader2, Bot, User } from 'lucide-react';
 import { aiApi } from '../services/api';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 interface Message {
     role: 'user' | 'ai';
@@ -96,7 +100,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({ uploadId, onClose }) => {
                                 ? 'bg-purple-600 text-white rounded-tr-none'
                                 : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-tl-none'
                             }`}>
-                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                            {msg.role === 'ai' ? (
+                                <ReactMarkdown
+                                    remarkPlugins={[remarkMath]}
+                                    rehypePlugins={[rehypeKatex]}
+                                    className="prose dark:prose-invert max-w-none text-sm"
+                                >
+                                    {msg.content}
+                                </ReactMarkdown>
+                            ) : (
+                                <p className="whitespace-pre-wrap">{msg.content}</p>
+                            )}
                         </div>
                     </div>
                 ))}
